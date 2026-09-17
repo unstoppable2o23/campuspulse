@@ -502,6 +502,68 @@ async function api(req, res, p) {
     return send(200, { items });
   }
 
+  /* ── Phase 2: counsellor <-> student threads (admin read-only) ── */
+  async function threadStudent(sid) {
+    const { data } = await sb.from('users').select('id, counsellor_id').eq('id', sid).eq('role', 'student').maybeSingle();
+    return data || null;
+  }
+  function threadVisible(user, stu) {
+    if (!stu) return false;
+    if (user.role === 'admin') return true;
+    if (user.role === 'student') return user.id === stu.id;
+    return stu.counsellor_id === user.id;
+  }
+
+  /* thread history (marks others' messages read for the viewer) */
+  if (req.method === 'GET' && /^\/api\/students\/\d+\/messages$/.test(p)) {
+    const sid = +p.match(/\d+/)[0];
+    const stu = await threadStudent(sid);
+    if (!stu) return send(404, { error: 'Student not found' });
+    if (!threadVisible(user, stu)) return send(403, { error: 'Forbidden' });
+    const { data: rows } = await sb.from('messages')
+      .select('id, sender_id, body, read_at, created_at, sender:users!messages_sender_id_fkey(name)')
+      .eq('student_id', sid).order('created_at').limit(100);
+    await sb.from('messages').update({ read_at: new Date().toISOString() })
+      .eq('student_id', sid).neq('sender_id', user.id).is('read_at', null);
+    const items = (rows || []).map(r => ({ id: r.id, mine: r.sender_id === user.id,
+      from: r.sender ? r.sender.name : null, body: r.body, at: new Date(r.created_at).getTime() }));
+    return send(200, { items });
+  }
+
+  if (req.method === 'POST' && p === '/api/messages') {
+    if (user.role === 'admin') return send(403, { error: 'Admins can only read threads' });
+    const b = await body(req);
+    const sid = +b.student;
+    const text = String(b.body || '').trim().slice(0, 1000);
+    if (!sid) return send(400, { error: 'Pick a student thread.' });
+    if (text.length < 1) return send(400, { error: 'Write a message first.', field: 'body' });
+    const stu = await threadStudent(sid);
+    if (!stu) return send(404, { error: 'Student not found' });
+    if (!threadVisible(user, stu)) return send(403, { error: 'Forbidden' });
+    const { data: msg, error } = await sb.from('messages')
+      .insert({ student_id: sid, sender_id: user.id, body: text }).select('id, created_at').single();
+    if (error) throw error;
+    broadcast('chat', { student: sid, from: user.id, name: user.name, snippet: text.slice(0, 80) },
+      ['admin', 'counsellor'], [sid, stu.counsellor_id].filter(Boolean), user.id);
+    return send(200, { id: msg.id, at: new Date(msg.created_at).getTime() });
+  }
+
+  /* unread counts for threads visible to the viewer */
+  if (req.method === 'GET' && p === '/api/unread') {
+    let q = sb.from('messages').select('student_id').neq('sender_id', user.id).is('read_at', null).limit(500);
+    if (user.role === 'student') q = q.eq('student_id', user.id);
+    else if (user.role === 'counsellor') {
+      const { data: mine } = await sb.from('users').select('id').eq('role', 'student').eq('counsellor_id', user.id);
+      const ids = (mine || []).map(s => s.id);
+      if (!ids.length) return send(200, { counts: {}, total: 0 });
+      q = q.in('student_id', ids);
+    }
+    const { data: rows } = await q;
+    const counts = {};
+    (rows || []).forEach(r => counts[r.student_id] = (counts[r.student_id] || 0) + 1);
+    return send(200, { counts, total: (rows || []).length });
+  }
+
   if (req.method === 'POST' && p === '/api/counsellors') {
     if (user.role !== 'admin') return send(403, { error: 'Only the superadmin can add counsellors' });
     const b = await body(req);

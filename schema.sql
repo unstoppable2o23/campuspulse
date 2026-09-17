@@ -47,5 +47,16 @@ create table if not exists public.status_history (
 );
 create index if not exists status_history_student_idx on public.status_history (student_id);
 
+-- Phase 2: counsellor <-> student threads (one thread per student, admin read-only)
+create table if not exists public.messages (
+  id bigint generated always as identity primary key,
+  student_id bigint not null references public.users (id) on delete cascade,
+  sender_id bigint not null references public.users (id) on delete cascade,
+  body text not null check (char_length(body) >= 1 and char_length(body) <= 1000),
+  read_at timestamptz,
+  created_at timestamptz not null default now()
+);
+create index if not exists messages_student_idx on public.messages (student_id, created_at);
+
 -- NOTE: this project uses the SERVICE_ROLE key from Node, so no RLS policies are required.
 -- If you enable RLS, add permissive policies for the service role or disable RLS on these tables.
