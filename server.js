@@ -635,6 +635,88 @@ async function api(req, res, p) {
     return send(200, { counts, total: (rows || []).length });
   }
 
+  /* ── user management: password resets + student detail edits ──
+     admin → any user; counsellor → own students only. Resets sign the target out everywhere. */
+  async function managedUser(id) {
+    const { data } = await sb.from('users').select('*').eq('id', id).maybeSingle();
+    return rowToUser(data);
+  }
+  function canManage(user, target) {
+    if (!target) return false;
+    if (user.role === 'admin') return true;
+    return user.role === 'counsellor' && target.role === 'student' && target.counsellorId === user.id;
+  }
+
+  /* full student record for the edit form (staff, scoped) */
+  if (req.method === 'GET' && /^\/api\/students\/\d+$/.test(p)) {
+    if (user.role === 'student') return send(403, { error: 'Forbidden' });
+    const t = await managedUser(+p.match(/\d+/)[0]);
+    if (!t || t.role !== 'student') return send(404, { error: 'Student not found' });
+    if (!canManage(user, t)) return send(403, { error: 'Not your student' });
+    return send(200, { student: sanitize(t) });
+  }
+
+  if (req.method === 'PATCH' && /^\/api\/users\/\d+\/password$/.test(p)) {
+    if (user.role === 'student') return send(403, { error: 'Forbidden' });
+    const t = await managedUser(+p.match(/\d+/)[0]);
+    if (!t) return send(404, { error: 'User not found' });
+    if (!canManage(user, t)) return send(403, { error: 'Forbidden' });
+    const b = await body(req);
+    if (String(b.password || '').length < 6)
+      return send(400, { error: 'New password needs at least 6 characters.', field: 'password' });
+    if (b.password !== b.confirm)
+      return send(400, { error: 'Passwords do not match.', field: 'confirm' });
+    const salt = crypto.randomBytes(12).toString('hex');
+    await sb.from('users').update({ password_salt: salt, password_hash: hash(b.password, salt) }).eq('id', t.id);
+    await sb.from('sessions').delete().eq('user_id', t.id);
+    return send(200, { ok: true });
+  }
+
+  if (req.method === 'PATCH' && /^\/api\/students\/\d+$/.test(p)) {
+    if (user.role === 'student') return send(403, { error: 'Forbidden' });
+    const t = await managedUser(+p.match(/\d+/)[0]);
+    if (!t || t.role !== 'student') return send(404, { error: 'Student not found' });
+    if (!canManage(user, t)) return send(403, { error: 'Not your student' });
+    const b = await body(req);
+    const updates = {};
+    if (b.name !== undefined) {
+      if (String(b.name || '').trim().length < 3)
+        return send(400, { error: 'Please enter the full name.', field: 'name' });
+      updates.name = String(b.name).trim();
+    }
+    const pr = { ...(t.profile || {}) };
+    const pf = b.profile || {};
+    if (pf.phone !== undefined) {
+      const digits = (String(pf.phone).match(/\d/g) || []).length;
+      if (!/^[+()\-\s\d]{10,16}$/.test(String(pf.phone)) || digits < 10 || digits > 15)
+        return send(400, { error: 'Enter a valid phone number (10–15 digits).', field: 'phone' });
+      pr.phone = String(pf.phone).trim();
+    }
+    if (pf.dob !== undefined) {
+      const dob = new Date(String(pf.dob) + 'T00:00:00'), nowD = new Date();
+      let age = isNaN(dob) ? null : nowD.getFullYear() - dob.getFullYear();
+      if (age !== null && (nowD.getMonth() < dob.getMonth() || (nowD.getMonth() === dob.getMonth() && nowD.getDate() < dob.getDate()))) age--;
+      if (age === null || age < 10 || age > 35)
+        return send(400, { error: 'Students must be 10–35 years old.', field: 'dob' });
+      pr.dob = pf.dob;
+    }
+    for (const k of ['gender', 'grade', 'stream', 'school', 'city', 'goal', 'mode', 'hear']) {
+      if (pf[k] !== undefined) {
+        if (!String(pf[k] || '').trim()) return send(400, { error: 'Field cannot be empty.', field: k });
+        pr[k] = String(pf[k]).trim();
+      }
+    }
+    if (pf.subjects !== undefined) {
+      if (!Array.isArray(pf.subjects) || !pf.subjects.length)
+        return send(400, { error: 'Pick at least one subject.', field: 'subjects' });
+      pr.subjects = pf.subjects.map(String);
+    }
+    if (Object.keys(pr).length) updates.profile = pr;
+    if (!Object.keys(updates).length) return send(400, { error: 'Nothing to update.' });
+    await sb.from('users').update(updates).eq('id', t.id);
+    return send(200, { ok: true });
+  }
+
   if (req.method === 'POST' && p === '/api/counsellors') {
     if (user.role !== 'admin') return send(403, { error: 'Only the superadmin can add counsellors' });
     const b = await body(req);

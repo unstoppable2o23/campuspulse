@@ -1000,6 +1000,7 @@ function adminOverviewHTML() {
         return `<div class="perf-row">
           <div class="perf-top"><div class="fav ${hash2(cn.name) % 2 ? 'alt' : ''}">${initials(cn.name)}</div>
             <div><b>${esc(cn.name)}</b><span class="hint">${esc(cn.email)}</span></div>
+            <button class="chat-btn" data-pw-con="${cn.id}" data-name="${esc(cn.name)}" title="Reset password"><i data-lucide="key-round"></i></button>
             <div class="perf-nums"><b data-count="${cn.students}">0</b><span class="hint">students</span></div></div>
           <div class="bar"><i data-w="${Math.round(cn.students / maxStu * 100)}"></i></div>
           <div class="perf-sub"><span>${cn.enrolled} enrolled · ${cn.upcoming} upcoming</span><span class="conv">${conv}% conversion</span></div>
@@ -1105,7 +1106,7 @@ function studentRow(s) {
     <td><select class="st ${PILL[s.status]}" data-sid="${s.id}" data-name="${esc(s.name)}">
       ${Object.keys(STATUS_L).map(k => `<option value="${k}" ${k === s.status ? 'selected' : ''}>${STATUS_L[k]}</option>`).join('')}
     </select></td>
-    <td><div style="display:flex;align-items:center;gap:9px"><button class="chat-btn" data-chat="${s.id}" data-name="${esc(s.name)}" title="Messages"><i data-lucide="message-circle"></i><span class="ubadge" data-ubadge="${s.id}" hidden></span></button><span class="hint">${ago(s.at)}</span></div></td></tr>`;
+    <td><div style="display:flex;align-items:center;gap:9px"><button class="chat-btn" data-chat="${s.id}" data-name="${esc(s.name)}" title="Messages"><i data-lucide="message-circle"></i><span class="ubadge" data-ubadge="${s.id}" hidden></span></button><button class="chat-btn" data-edit="${s.id}" data-name="${esc(s.name)}" title="Edit details"><i data-lucide="pencil"></i></button><button class="chat-btn" data-pw="${s.id}" data-name="${esc(s.name)}" title="Reset password"><i data-lucide="key-round"></i></button><span class="hint">${ago(s.at)}</span></div></td></tr>`;
 }
 function wireStudentsTable() {
   const exS = $('#exp-students');
@@ -1139,8 +1140,98 @@ function wireStudentsTable() {
     if (e.target.closest('.st')) return;              // ignore the status dropdown
     const chatBtn = e.target.closest('[data-chat]');
     if (chatBtn) { openThread(+chatBtn.dataset.chat, chatBtn.dataset.name); return; }
+    const editBtn = e.target.closest('[data-edit]');
+    if (editBtn) { openEditStudent(+editBtn.dataset.edit, editBtn.dataset.name); return; }
+    const pwBtn = e.target.closest('[data-pw]');
+    if (pwBtn) { openPwReset(+pwBtn.dataset.pw, pwBtn.dataset.name); return; }
     const tr = e.target.closest('tr[data-sid]'); if (!tr) return;
     openHistory(+tr.dataset.sid, tr.querySelector('.tcell b').textContent);
+  });
+}
+
+/* ── password reset + student edit ──────────────────────── */
+function wirePeeks(root) {
+  root.querySelectorAll('.peek').forEach(b => b.addEventListener('click', () => {
+    const i = document.getElementById(b.dataset.target);
+    i.type = i.type === 'password' ? 'text' : 'password';
+    b.innerHTML = `<i data-lucide="${i.type === 'password' ? 'eye' : 'eye-off'}"></i>`; icons();
+  }));
+}
+function openPwReset(uid, name) {
+  openModal(`<button class="modal-x" id="mx"><i data-lucide="x"></i></button>
+    <h3>Reset password</h3><p class="hint">Set a new password for <b>${esc(name)}</b> — they'll be signed out everywhere.</p>
+    <form id="f-pw" novalidate>
+      ${PassFld('npw', 'New password', '6+ characters')}
+      ${PassFld('nconfirm', 'Confirm new password', 'Repeat password')}
+      <p id="pw-err" class="form-error" hidden></p>
+      <button class="btn btn-primary btn-wide">Set new password <i data-lucide="key-round"></i></button>
+    </form>`);
+  icons(); wirePeeks($('#modal-root'));
+  $('#mx').addEventListener('click', closeModal);
+  $('#f-pw').addEventListener('submit', async e => {
+    e.preventDefault();
+    const err = $('#pw-err'); err.hidden = true;
+    const pw = $('#r-npw').value, cf = $('#r-nconfirm').value;
+    if (pw.length < 6) { err.textContent = 'New password needs at least 6 characters.'; err.hidden = false; return; }
+    if (pw !== cf) { err.textContent = 'Passwords do not match.'; err.hidden = false; return; }
+    try {
+      await api(`/api/users/${uid}/password`, { method: 'PATCH', body: { password: pw, confirm: cf } });
+      closeModal(); toast(`Password updated for ${name}`, 'key-round');
+    } catch (d) { err.textContent = d.error || 'Could not update.'; err.hidden = false; }
+  });
+}
+async function openEditStudent(sid, name) {
+  openModal(`<button class="modal-x" id="mx"><i data-lucide="x"></i></button>
+    <h3>${esc(name)}</h3><p class="hint">Edit details — saved instantly</p>
+    <div id="edit-body"><p class="hint">Loading…</p></div>`);
+  icons();
+  $('#mx').addEventListener('click', closeModal);
+  let student;
+  try {
+    ({ student } = await api(`/api/students/${sid}`));
+  } catch { $('#edit-body').innerHTML = '<p class="hint">Could not load details.</p>'; return; }
+  const p = student.profile || {};
+  const opt = (v, cur) => `<option${v === cur ? ' selected' : ''}>${v}</option>`;
+  const selRow = (id, label, opts, cur) =>
+    `<div class="field"><label>${label}</label><select id="e-${id}">${opts.map(v => opt(v, cur)).join('')}</select></div>`;
+  $('#edit-body').innerHTML = `<form id="f-edit" novalidate>
+    <div class="field"><label>Full name</label><input id="e-name" value="${esc(student.name)}"></div>
+    <div class="frow">
+      <div class="field"><label>Phone</label><input id="e-phone" value="${esc(p.phone || '')}"></div>
+      <div class="field"><label>Date of birth</label><input id="e-dob" type="date" value="${esc(p.dob || '')}"></div>
+    </div>
+    <div class="frow">${selRow('gender', 'Gender', ['Male', 'Female', 'Other', 'Prefer not to say'], p.gender)}
+      ${selRow('grade', 'Grade', GRADES, p.grade)}</div>
+    <div class="frow">${selRow('stream', 'Stream', STREAMS, p.stream)}
+      ${selRow('goal', 'Primary goal', GOALS, p.goal)}</div>
+    <div class="frow">
+      <div class="field"><label>School / College</label><input id="e-school" value="${esc(p.school || '')}"></div>
+      <div class="field"><label>City</label><input id="e-city" value="${esc(p.city || '')}"></div>
+    </div>
+    <div class="frow">${selRow('mode', 'Counselling mode', MODES, p.mode)}
+      ${selRow('hear', 'Heard via', HEARD, p.hear)}</div>
+    <div class="field"><label>Subjects</label><div class="chips" id="edit-chips">${
+      SUBJ.map(s => `<button type="button" class="chip${(p.subjects || []).includes(s) ? ' on' : ''}" data-v="${s}">${s}</button>`).join('')}</div></div>
+    <p id="edit-err" class="form-error" hidden></p>
+    <button class="btn btn-primary btn-wide">Save changes</button></form>`;
+  let editSubjects = [...(p.subjects || [])];
+  $('#edit-chips').addEventListener('click', e => {
+    const c = e.target.closest('.chip'); if (!c) return;
+    c.classList.toggle('on');
+    editSubjects = [...$('#edit-chips').querySelectorAll('.on')].map(x => x.dataset.v);
+  });
+  $('#f-edit').addEventListener('submit', async e => {
+    e.preventDefault();
+    const err = $('#edit-err'); err.hidden = true;
+    const gv = id => ($('#e-' + id) || {}).value || '';
+    try {
+      await api(`/api/students/${sid}`, { method: 'PATCH', body: { name: gv('name'), profile: {
+        phone: gv('phone'), dob: gv('dob'), gender: gv('gender'), grade: gv('grade'), stream: gv('stream'),
+        school: gv('school'), city: gv('city'), subjects: editSubjects, goal: gv('goal'),
+        mode: gv('mode'), hear: gv('hear') } } });
+      closeModal(); toast(`Details saved for ${gv('name') || name}`);
+      dash = await api('/api/dashboard'); renderSection(currentSection);
+    } catch (d) { err.textContent = d.error || 'Could not save.'; err.hidden = false; }
   });
 }
 
@@ -1340,6 +1431,8 @@ function counsellorsHTML() {
   </section>`;
 }
 function wireCounsellors() {
+  document.querySelectorAll('[data-pw-con]').forEach(b => b.addEventListener('click', () =>
+    openPwReset(+b.dataset.pwCon, b.dataset.name)));
   $('#add-con').addEventListener('click', () => {
     openModal(`<button class="modal-x" id="mx"><i data-lucide="x"></i></button>
       <h3>Add a counsellor</h3><p class="hint">They can sign in immediately with the password you set.</p>
