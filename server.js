@@ -346,10 +346,12 @@ async function dashboard(u) {
     series.push({ label: start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
       count: students.filter(s => s.createdAt >= +start && s.createdAt < +start + DAY).length });
   }
+  const upcomingByCon = {};
   const perf = counsellors.map(c => {
     const mine = students.filter(s => s.counsellorId === c.id);
     return { id: c.id, name: c.name, email: c.email, students: mine.length,
-             enrolled: mine.filter(s => s.status === 'enrolled').length, joined: c.createdAt };
+             enrolled: mine.filter(s => s.status === 'enrolled').length, joined: c.createdAt,
+             upcoming: 0 };
   });
   const recent = students.slice(0, 8)
     .map(s => ({ name: s.name, grade: s.profile.grade, stream: s.profile.stream, city: s.profile.city,
@@ -359,12 +361,61 @@ async function dashboard(u) {
   const st = {}; students.forEach(s => st[s.profile.stream] = (st[s.profile.stream] || 0) + 1);
   const streams = Object.entries(st).sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count }));
 
+  /* ── Phase 4: funnel, timing, stale leads, session + message activity (scoped to visible students) */
+  const FUNNEL_KEYS = ['new', 'contacted', 'counselling', 'enrolled'];
+  const funnel = FUNNEL_KEYS.map(k => ({ key: k, count: students.filter(s => s.status === k).length }));
+  let timing = { avgDays: null, sample: 0 };
+  let stale = [];
+  let sesStats = { byStatus: {}, upcoming: 0, confirmRate: null };
+  let msgWeek = 0;
+  const sIds = students.map(s => s.id);
+  if (sIds.length) {
+    const enrolledIds = students.filter(s => s.status === 'enrolled').map(s => s.id);
+    const [sesRes, histRes, msgRes] = await Promise.all([
+      sb.from('session_requests').select('status, student_id, requested_date').in('student_id', sIds).limit(2000),
+      enrolledIds.length
+        ? sb.from('status_history').select('student_id, to_status, created_at').in('student_id', enrolledIds).limit(2000)
+        : Promise.resolve({ data: [] }),
+      sb.from('messages').select('id', { count: 'exact', head: true }).in('student_id', sIds)
+        .gte('created_at', new Date(now - 7 * DAY).toISOString()),
+    ]);
+    const sesRows = sesRes.data || [];
+    const byStatus = {};
+    sesRows.forEach(r => byStatus[r.status] = (byStatus[r.status] || 0) + 1);
+    const today = new Date().toISOString().slice(0, 10);
+    const upcoming = sesRows.filter(r => r.status === 'confirmed' && r.requested_date >= today);
+    const decided = sesRows.filter(r => ['confirmed', 'completed', 'declined'].includes(r.status));
+    const kept = sesRows.filter(r => ['confirmed', 'completed'].includes(r.status));
+    sesStats = { byStatus, upcoming: upcoming.length,
+      confirmRate: decided.length ? Math.round(kept.length / decided.length * 100) : null };
+    const sConMap = {}; students.forEach(s => sConMap[s.id] = s.counsellorId);
+    upcoming.forEach(r => { const cid = sConMap[r.student_id]; if (cid) upcomingByCon[cid] = (upcomingByCon[cid] || 0) + 1; });
+    msgWeek = msgRes.count || 0;
+    const firstNew = {}, enrolledAt = {};
+    (histRes.data || []).forEach(h => {
+      const t = new Date(h.created_at).getTime();
+      if (h.to_status === 'new' && (firstNew[h.student_id] == null || t < firstNew[h.student_id])) firstNew[h.student_id] = t;
+      if (h.to_status === 'enrolled') enrolledAt[h.student_id] = t;
+    });
+    const spans = Object.keys(enrolledAt)
+      .filter(id => firstNew[id] != null && enrolledAt[id] >= firstNew[id])
+      .map(id => (enrolledAt[id] - firstNew[id]) / DAY);
+    if (spans.length) timing = { avgDays: Math.round(spans.reduce((a, b) => a + b, 0) / spans.length * 10) / 10, sample: spans.length };
+    stale = students
+      .filter(s => ['new', 'contacted'].includes(s.status) && now - s.createdAt >= 7 * DAY)
+      .sort((a, b) => a.createdAt - b.createdAt).slice(0, 8)
+      .map(s => ({ id: s.id, name: s.name, status: s.status,
+        days: Math.floor((now - s.createdAt) / DAY), counsellor: cName[s.counsellorId] || 'Unassigned' }));
+  }
+  perf.forEach(p => p.upcoming = upcomingByCon[p.id] || 0);
+
   const stats = u.role === 'admin'
     ? { students: students.length, counsellors: counsellors.length, week, delta: week - prev, enrolled }
     : { students: students.length, week, delta: week - prev, enrolled,
         requests: await pendingRequestCount(students.map(s => s.id)) };
 
   return { role: u.role, stats, series, recent, subjects, streams, perf,
+           funnel, timing, stale, sesStats, msgWeek,
            students: students.map(s => ({ id: s.id, name: s.name, email: s.email, grade: s.profile.grade,
              stream: s.profile.stream, city: s.profile.city, counsellor: cName[s.counsellorId] || 'Unassigned',
              status: s.status, at: s.createdAt })) };
@@ -755,6 +806,10 @@ async function api(req, res, p) {
     if (user.role === 'student') return send(403, { error: 'Forbidden' });
     let q = sb.from('users').select('*').eq('role', 'student').order('created_at', { ascending: false });
     if (user.role === 'counsellor') q = q.eq('counsellor_id', user.id);
+    else {
+      const cf = +(new URL(req.url, 'http://x').searchParams.get('counsellor') || 0);
+      if (cf) q = q.eq('counsellor_id', cf);
+    }
     const [{ data: rows }, { data: conRows }] = await Promise.all([
       q, sb.from('users').select('id, name').eq('role', 'counsellor'),
     ]);
@@ -771,6 +826,36 @@ async function api(req, res, p) {
     res.writeHead(200, {
       'Content-Type': 'text/csv; charset=utf-8',
       'Content-Disposition': 'attachment; filename="campuspulse-students-' + new Date().toISOString().slice(0, 10) + '.csv"',
+    });
+    return res.end('\uFEFF' + lines.join('\r\n'));
+  }
+
+  /* CSV export: bookings (admin → all, counsellor → own students) */
+  if (req.method === 'GET' && p === '/api/export/sessions') {
+    if (user.role === 'student') return send(403, { error: 'Forbidden' });
+    let q = sb.from('session_requests')
+      .select('*, student:users!session_requests_student_id_fkey(name, counsellor_id), slot:slots!session_requests_slot_id_fkey(start_time, minutes)')
+      .order('requested_date', { ascending: false }).limit(2000);
+    if (user.role === 'counsellor') {
+      const { data: mine } = await sb.from('users').select('id').eq('role', 'student').eq('counsellor_id', user.id);
+      const ids = (mine || []).map(s => s.id);
+      if (!ids.length) q = q.eq('student_id', -1);
+      else q = q.in('student_id', ids);
+    }
+    const [{ data: rows }, { data: conRows }] = await Promise.all([
+      q, sb.from('users').select('id, name').eq('role', 'counsellor'),
+    ]);
+    const cName = {}; (conRows || []).forEach(c => cName[c.id] = c.name);
+    const head = ['BookingID', 'Student', 'Counsellor', 'Date', 'Time', 'Status', 'Note', 'BookedOn'];
+    const q2 = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+    const lines = [head.join(',')].concat((rows || []).map(r => [
+      r.id, r.student ? r.student.name : '', cName[r.student ? r.student.counsellor_id : 0] || 'Unassigned',
+      r.requested_date, r.slot ? r.slot.start_time : '', r.status, r.note,
+      new Date(r.created_at).toISOString().slice(0, 10),
+    ].map(q2).join(',')));
+    res.writeHead(200, {
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': 'attachment; filename="campuspulse-sessions-' + new Date().toISOString().slice(0, 10) + '.csv"',
     });
     return res.end('\uFEFF' + lines.join('\r\n'));
   }

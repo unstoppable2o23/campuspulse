@@ -11,6 +11,7 @@ A student guidance platform with a Superadmin → Counsellors → Students hiera
 - 📜 Status history — every student's status transitions are recorded with who changed them and when
 - ✨ Magic-link login — students can sign in via emailed link (Supabase Auth)
 - 📥 CSV export — Superadmin exports all students, counsellors export their own
+- 📈 Analytics — admissions funnel with enrol-time average, stale-lead radar, session activity, per-counsellor loads, students + sessions CSV reports
 - 🌱 Auto-seeding — seeds 50+ demo users on first boot against an empty database
 
 ## Stack

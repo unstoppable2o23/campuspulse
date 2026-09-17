@@ -927,6 +927,43 @@ function renderSection(sec) {
 }
 
 /* ── overview (admin + counsellor) ──────────────────────── */
+function funnelHTML() {
+  const f = dash.funnel || [], t = dash.timing || {};
+  const maxF = Math.max(1, ...f.map(x => x.count));
+  return `<section class="panel">
+    <div class="panel-head"><div><h3>Admissions funnel</h3><p class="hint">Where ${me.role === 'admin' ? 'students' : 'your students'} stand right now${
+      t.avgDays != null ? ` · enrol in ~${t.avgDays}d on average (n=${t.sample})` : ''}</p></div></div>
+    ${f.map((s2, i) => {
+      const conv = i ? Math.round(s2.count / Math.max(1, f[i - 1].count) * 100) : null;
+      return `<div class="trend-row" style="grid-template-columns:130px 1fr 120px"><b>${STATUS_L[s2.key]}</b>
+        <div class="bar${i >= 2 ? '' : ' amber'}"><i data-w="${Math.round(s2.count / maxF * 100)}"></i></div>
+        <span class="tcount">${s2.count}${conv != null ? ` · ${conv}% kept` : ''}</span></div>`;
+    }).join('')}
+  </section>`;
+}
+function insightsHTML() {
+  const st8 = dash.sesStats || { byStatus: {}, upcoming: 0, confirmRate: null };
+  const order = ['pending', 'confirmed', 'completed', 'declined', 'cancelled'];
+  const maxS = Math.max(1, ...order.map(k => st8.byStatus[k] || 0));
+  const stale = dash.stale || [];
+  return `<div class="grid-2" style="margin-bottom:24px">
+    <section class="panel" style="margin-bottom:0">
+      <div class="panel-head"><div><h3>Stale leads</h3><p class="hint">New / contacted, waiting 7+ days — oldest first</p></div></div>
+      ${stale.length ? stale.map(l => `<div class="feed-row">
+        <div class="fav ${hash2(l.name) % 2 ? 'alt' : ''}">${initials(l.name)}</div>
+        <div class="feed-main"><b>${esc(l.name)}</b><span class="hint">→ ${esc(l.counsellor)}</span></div>
+        <div class="feed-side"><span class="ago">${l.days}d waiting</span><span class="pill ${PILL[l.status]}">${STATUS_L[l.status]}</span></div>
+      </div>`).join('') : '<p class="hint">No stale leads — every desk is moving.</p>'}
+    </section>
+    <section class="panel" style="margin-bottom:0">
+      <div class="panel-head"><div><h3>Session activity</h3><p class="hint">${st8.upcoming} upcoming confirmed · ${dash.msgWeek || 0} messages this week${
+        st8.confirmRate != null ? ` · ${st8.confirmRate}% confirm rate` : ''}</p></div></div>
+      ${order.map(k => `<div class="trend-row" style="grid-template-columns:110px 1fr 62px"><b>${SES_L[k]}</b>
+        <div class="bar"><i data-w="${Math.round((st8.byStatus[k] || 0) / maxS * 100)}"></i></div>
+        <span class="tcount">${st8.byStatus[k] || 0}</span></div>`).join('')}
+    </section>
+  </div>`;
+}
 function statHTML(lbl, val, delta) {
   return `<div class="stat"><span class="lbl">${lbl}</span><b data-count="${val}">0</b>${
     delta != null ? `<span class="delta ${delta >= 0 ? 'up' : 'down'}"><i data-lucide="${delta >= 0 ? 'trending-up' : 'trending-down'}"></i>${Math.abs(delta)} vs last week</span>` : ''
@@ -953,6 +990,7 @@ function adminOverviewHTML() {
     </div>
     <div class="chart-wrap" id="chart"></div>
   </section>
+  ${funnelHTML()}
   <div class="grid-2">
     ${isAdm ? `
     <section class="panel">
@@ -964,7 +1002,7 @@ function adminOverviewHTML() {
             <div><b>${esc(cn.name)}</b><span class="hint">${esc(cn.email)}</span></div>
             <div class="perf-nums"><b data-count="${cn.students}">0</b><span class="hint">students</span></div></div>
           <div class="bar"><i data-w="${Math.round(cn.students / maxStu * 100)}"></i></div>
-          <div class="perf-sub"><span>${cn.enrolled} enrolled</span><span class="conv">${conv}% conversion</span></div>
+          <div class="perf-sub"><span>${cn.enrolled} enrolled · ${cn.upcoming} upcoming</span><span class="conv">${conv}% conversion</span></div>
         </div>`; }).join('')}
     </section>` : `
     <section class="panel">
@@ -982,6 +1020,7 @@ function adminOverviewHTML() {
       </div>`).join('')}
     </section>
   </div>
+  ${insightsHTML()}
   <section class="panel">
     <div class="panel-head"><div><h3>Rising subjects across CampusPulse</h3><p class="hint">What your students are pursuing right now</p></div></div>
     <div class="subj-grid">${dash.subjects.map(x => `<div class="trend-row"><b>${esc(x.name)}</b>
@@ -1046,9 +1085,11 @@ function studentsHTML() {
   const isAdm = me.role === 'admin';
   return `<div class="tbl-wrap">
     <div class="tbl-tools"><b>${dash.students.length} student${dash.students.length === 1 ? '' : 's'}</b>
-      <div style="display:flex;align-items:center;gap:14px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <span class="hint">Click a row for status history · change status from the dropdown</span>
-        <a class="btn btn-ghost" style="padding:8px 14px" href="${API_BASE}/api/export/students" download><i data-lucide="download"></i>Export CSV</a>
+        ${isAdm ? `<select id="exp-con" title="Filter export by counsellor" style="border:1px solid var(--line-2);border-radius:999px;padding:8px 26px 8px 13px;font:600 12.5px var(--f-u);cursor:pointer;background-color:var(--card)"><option value="">All counsellors</option>${dash.perf.map(cn => `<option value="${cn.id}">${esc(cn.name)}</option>`).join('')}</select>` : ''}
+        <button class="btn btn-ghost" style="padding:8px 14px" id="exp-students"><i data-lucide="download"></i>Students CSV</button>
+        <button class="btn btn-ghost" style="padding:8px 14px" id="exp-sessions"><i data-lucide="download"></i>Sessions CSV</button>
       </div></div>
     <table><thead><tr><th>Student</th><th>Grade</th><th>Stream</th><th>City</th>${isAdm ? '<th>Counsellor</th>' : ''}<th>Status</th><th>Registered</th></tr></thead>
     <tbody id="st-body">${dash.students.map(studentRow).join('')}</tbody></table>
@@ -1067,6 +1108,13 @@ function studentRow(s) {
     <td><div style="display:flex;align-items:center;gap:9px"><button class="chat-btn" data-chat="${s.id}" data-name="${esc(s.name)}" title="Messages"><i data-lucide="message-circle"></i><span class="ubadge" data-ubadge="${s.id}" hidden></span></button><span class="hint">${ago(s.at)}</span></div></td></tr>`;
 }
 function wireStudentsTable() {
+  const exS = $('#exp-students');
+  if (exS) exS.addEventListener('click', () => {
+    const cf = $('#exp-con') ? $('#exp-con').value : '';
+    location.href = `${API_BASE}/api/export/students${cf ? '?counsellor=' + cf : ''}`;
+  });
+  const exSe = $('#exp-sessions');
+  if (exSe) exSe.addEventListener('click', () => { location.href = `${API_BASE}/api/export/sessions`; });
   const inp = $('#st-search');
   if (inp) inp.addEventListener('input', () => {
     const q = inp.value.trim().toLowerCase();
