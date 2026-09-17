@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CampusPulse — Student Guidance Platform</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Ccircle%20cx='16'%20cy='16'%20r='15'%20fill='%2310241D'/%3E%3Cpath%20d='M7%2017h4.4l2.1-5.4%203.6%209.4%202-4H25'%20stroke='%23E39A2E'%20stroke-width='2.2'%20fill='none'%20stroke-linecap='round'%20stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Outfit:wght@300..700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+/* ── foundation ─────────────────────────────────────────── */
+:root{
+  --paper:#F5F3EC; --paper-2:#ECE8DC; --card:#FBFAF4;
+  --ink:#1B231E; --ink-2:#5B665C; --line:#DCD6C6; --line-2:#C9C2AD;
+  --green:#1E5B47; --green-deep:#123C2F; --pine:#0F241D; --pine-2:#163329;
+  --amber:#E39A2E; --amber-deep:#8F5E10; --amber-soft:#F6E4C2;
+  --terra:#BC4B2A; --terra-soft:#F3D9CE;
+  --cream:#F2EDDC;
+  --f-d:'Fraunces',Georgia,serif; --f-u:'Outfit','Segoe UI',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+::selection{background:var(--amber-soft)}
+html{scroll-behavior:smooth}
+body{background:var(--paper);color:var(--ink);font:400 15px/1.55 var(--f-u);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+a{color:var(--green);text-decoration:none;font-weight:600}
+a:hover{text-decoration:underline}
+input,select,textarea{font:500 15px var(--f-u);color:var(--ink)}
+svg.lucide{width:18px;height:18px;flex:none}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px;border-radius:4px}
+.hint{font-size:12.5px;color:var(--ink-2)}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:99px;border:2px solid var(--paper)}
+
+/* ── buttons / fields / chips ───────────────────────────── */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font:600 14.5px var(--f-u);
+  padding:12px 22px;border-radius:10px;border:1.5px solid transparent;transition:transform .15s,background .15s,border-color .15s}
+.btn svg.lucide{width:16px;height:16px}
+.btn-primary{background:var(--green);color:var(--cream)}
+.btn-primary:hover{background:var(--green-deep);transform:translateY(-1px)}
+.btn-ghost{border-color:var(--line-2);color:var(--ink)}
+.btn-ghost:hover{background:var(--paper-2)}
+.btn-wide{width:100%}
+.field{margin-bottom:20px}
+.field label{display:block;font:600 11px var(--f-u);letter-spacing:.13em;text-transform:uppercase;color:var(--ink-2);margin-bottom:4px}
+.field input,.field select,.field textarea{width:100%;background:transparent;border:0;border-bottom:1.5px solid var(--line-2);
+  padding:9px 2px;outline:none;transition:border-color .18s;border-radius:0}
+.field textarea{border:1.5px solid var(--line-2);border-radius:10px;padding:10px 12px;resize:vertical;background:var(--card)}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--green)}
+.field select,.st{appearance:none;-webkit-appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%231B231E' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 8px center}
+.field select{padding-right:26px;cursor:pointer}
+.field.err input,.field.err select{border-color:var(--terra)}
+.err-msg{color:var(--terra);font-size:12.5px;min-height:0;margin-top:3px}
+.field .err-msg:empty{margin:0}
+.form-error{color:var(--terra);font-size:13.5px;font-weight:600;margin-bottom:14px}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:0 22px}
+.pass-wrap{position:relative}
+.pass-wrap input{padding-right:36px}
+.peek{position:absolute;right:2px;top:8px;color:var(--ink-2);padding:4px}
+.peek:hover{color:var(--ink)}
+.chips,.pills{display:flex;flex-wrap:wrap;gap:9px;margin-top:8px}
+.chip{border:1.5px solid var(--line-2);border-radius:999px;padding:7px 15px;font-weight:500;font-size:13.5px;
+  color:var(--ink);user-select:none;transition:all .14s;background:var(--card)}
+.chip:hover{border-color:var(--green)}
+.chip.on{background:var(--green);border-color:var(--green);color:var(--cream)}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;color:var(--ink-2);cursor:pointer;margin:6px 0 4px}
+.check input{width:16px;height:16px;margin-top:2px;accent-color:var(--green)}
+.check.err span{color:var(--terra)}
+
+/* ── auth layout + brand panel ──────────────────────────── */
+.auth{display:grid;grid-template-columns:1.08fr 1fr;min-height:100vh}
+.brand{position:relative;overflow:hidden;background:var(--pine);color:var(--cream);
+  display:flex;flex-direction:column;justify-content:space-between;padding:34px 46px}
+.brand::before{content:'';position:absolute;inset:0;pointer-events:none;
+  background-image:linear-gradient(rgba(242,237,220,.045) 1px,transparent 1px);background-size:100% 30px}
+.brand-top{display:flex;align-items:center;gap:11px;position:relative}
+.wordmark{font:600 20px var(--f-u);letter-spacing:.01em}
+.wordmark em{font-style:normal;color:var(--amber)}
+.brand-mid{position:relative;max-width:520px;padding:30px 0}
+.eyebrow{font:600 11px var(--f-u);letter-spacing:.24em;text-transform:uppercase;color:var(--amber);margin-bottom:16px}
+.brand h1{font:500 clamp(32px,3.4vw,50px)/1.08 var(--f-d);letter-spacing:-.01em}
+.brand h1 em{font-style:italic;color:#EBC684}
+.lede{margin-top:18px;font-size:15.5px;color:rgba(242,237,220,.72);max-width:430px}
+.seal{position:absolute;top:-14px;right:-30px;width:150px;opacity:.9;pointer-events:none}
+.seal svg{width:100%;animation:spin 48s linear infinite}
+.seal text{font-family:var(--f-u);font-weight:600}
+@keyframes spin{to{transform:rotate(360deg)}}
+.brand-foot{position:relative}
+.pulse{width:100%;height:64px;display:block}
+.pulse-base{fill:none;stroke:rgba(242,237,220,.22);stroke-width:1.5}
+.pulse-run{fill:none;stroke:var(--amber);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;
+  stroke-dasharray:.13 1;stroke-dashoffset:1.13;animation:run 4.6s linear infinite}
+@keyframes run{to{stroke-dashoffset:0}}
+.ticker{display:flex;align-items:center;gap:10px;margin-top:8px;font-size:13px;color:rgba(242,237,220,.85)}
+.ticker .dot{width:8px;height:8px;border-radius:50%;background:var(--amber);animation:blink 1.6s ease infinite}
+@keyframes blink{50%{opacity:.25}}
+.auth-main{display:grid;place-items:center;padding:48px 34px}
+.auth-box{width:100%;max-width:410px}
+.auth-box.wide{max-width:520px}
+.auth-title{font:500 32px var(--f-d);letter-spacing:-.01em}
+.auth-sub{color:var(--ink-2);margin:6px 0 30px}
+.auth-alt{margin-top:22px;font-size:14px;color:var(--ink-2)}
+.demo{margin-top:32px;border-top:1.5px solid var(--ink);padding-top:14px}
+.demo-h{font:600 11px var(--f-u);letter-spacing:.13em;text-transform:uppercase;color:var(--ink-2);margin-bottom:6px}
+.demo-row{display:grid;grid-template-columns:96px 1fr auto;gap:12px;align-items:center;width:100%;
+  text-align:left;padding:9px 6px;border-bottom:1px dashed var(--line);border-radius:6px;transition:background .14s}
+.demo-row:hover{background:var(--paper-2)}
+.demo-role{font:600 11px var(--f-u);letter-spacing:.08em;text-transform:uppercase;color:var(--green)}
+.demo-cred{font-size:13px}
+.demo-pass{font-size:12.5px;color:var(--ink-2);font-weight:600}
+.demo-row.fill{background:var(--amber-soft)}
+
+/* ── wizard ─────────────────────────────────────────────── */
+.steps{display:flex;list-style:none;margin-bottom:30px;border-bottom:1.5px solid var(--ink);padding-bottom:14px}
+.steps li{flex:1;display:flex;align-items:center;gap:10px;color:var(--ink-2)}
+.steps li:not(:last-child)::after{content:'';flex:1;height:1.5px;background:var(--line-2);margin:0 12px;transition:background .3s}
+.snum{width:28px;height:28px;border-radius:50%;border:1.5px solid var(--line-2);display:grid;place-items:center;
+  font:600 13.5px var(--f-d);flex:none;transition:all .25s}
+.slbl{font:600 13px var(--f-u)}
+.steps li.done .snum{background:var(--green);border-color:var(--green);color:var(--cream)}
+.steps li.done::after{background:var(--green)}
+.steps li.on{color:var(--ink)}
+.steps li.on .snum{border-color:var(--green);color:var(--green);box-shadow:0 0 0 4px var(--amber-soft)}
+.pane{animation:rise .3s ease both}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}}
+.wiz-nav{display:flex;justify-content:space-between;margin-top:8px}
+
+/* ── app shell ──────────────────────────────────────────── */
+.shell{display:grid;grid-template-columns:238px 1fr;min-height:100vh}
+.rail{background:var(--pine);color:var(--cream);padding:24px 16px;display:flex;flex-direction:column;gap:6px;position:sticky;top:0;height:100vh}
+.rail-head{display:flex;align-items:center;gap:10px;padding:0 10px 20px;border-bottom:1px solid rgba(242,237,220,.14);margin-bottom:14px}
+.rail-head svg{color:var(--amber)}
+.rail-role{display:block;font:600 10px var(--f-u);letter-spacing:.16em;text-transform:uppercase;color:rgba(242,237,220,.55);margin-top:2px}
+.rail-nav{display:flex;flex-direction:column;gap:4px}
+.rail-item{display:flex;align-items:center;gap:12px;padding:11px 13px;border-radius:10px;
+  color:#AEBBAD;font-weight:500;text-align:left;transition:all .15s;width:100%}
+.rail-item:hover{background:rgba(242,237,220,.07);color:var(--cream)}
+.rail-item.on{background:rgba(242,237,220,.09);color:var(--cream);box-shadow:inset 3px 0 0 var(--amber)}
+.rail-foot{margin-top:auto;border-top:1px solid rgba(242,237,220,.14);padding-top:10px}
+.maincol{min-width:0}
+.topbar{display:flex;align-items:center;gap:18px;padding:16px 36px;border-bottom:1px solid var(--line);
+  background:rgba(245,243,236,.92);backdrop-filter:blur(6px);position:sticky;top:0;z-index:5}
+.topbar h2{font:500 23px var(--f-d);letter-spacing:-.01em}
+.search{display:flex;align-items:center;gap:9px;border:1.5px solid var(--line-2);border-radius:999px;
+  padding:8px 16px;background:var(--card);margin-left:auto;min-width:250px;color:var(--ink-2)}
+.search input{border:0;outline:0;background:transparent;width:100%;font-weight:500}
+.search svg.lucide{width:15px;height:15px}
+.top-user{display:flex;align-items:center;gap:11px}
+.top-user .fav{width:36px;height:36px;font-size:12.5px}
+.top-user b{font-size:14px;display:block;line-height:1.2}
+.role-pill{font:600 10.5px var(--f-u);letter-spacing:.09em;text-transform:uppercase;color:var(--green);
+  border:1px solid var(--green);border-radius:999px;padding:2px 9px}
+.content{padding:30px 36px 56px;max-width:1180px}
+
+/* ── stat strip / panels ────────────────────────────────── */
+.statline{display:flex;border-block:1.5px solid var(--ink);margin-bottom:28px;background:var(--card)}
+.stat{flex:1;padding:20px 26px;border-left:1px solid var(--line)}
+.stat:first-child{border-left:0}
+.stat .lbl{display:block;font:600 11px var(--f-u);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2);margin-bottom:2px}
+.stat b{font:500 42px/1.1 var(--f-d);letter-spacing:-.02em}
+.delta{display:flex;align-items:center;gap:5px;font:600 12.5px var(--f-u);margin-top:4px}
+.delta svg.lucide{width:13px;height:13px}
+.delta.up{color:var(--green)} .delta.down{color:var(--terra)}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px 24px;margin-bottom:24px}
+.panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}
+.panel h3{font:500 20px var(--f-d);letter-spacing:-.01em}
+.panel-head .hint{margin-top:2px}
+.grid-2{display:grid;grid-template-columns:1.15fr .85fr;gap:22px;align-items:start}
+.grid-2 .panel{margin-bottom:0}
+.chart-total{text-align:right}
+.chart-total b{font:500 26px var(--f-d);display:block;line-height:1}
+.chart-total span{font:600 10.5px var(--f-u);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2)}
+.chart-wrap{position:relative}
+.chart-wrap svg{width:100%;height:auto;display:block}
+.chart-line{stroke:var(--green);stroke-width:2.4;fill:none;stroke-linecap:round;stroke-linejoin:round;
+  stroke-dasharray:1;stroke-dashoffset:1;animation:draw 1.15s .15s cubic-bezier(.6,0,.3,1) forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.chart-area{fill:rgba(30,91,71,.08);opacity:0;animation:fadein .8s .75s forwards}
+.chart-dotp{fill:var(--card);stroke:var(--green);stroke-width:1.6;opacity:0;animation:fadein .5s .9s forwards}
+@keyframes fadein{to{opacity:1}}
+.grid-ln{stroke:var(--line);stroke-dasharray:2 4}
+.ax{font:500 11px var(--f-u);fill:var(--ink-2)}
+.xhair{stroke:var(--ink);stroke-width:1;stroke-dasharray:3 3;opacity:0}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--cream);border-radius:9px;
+  padding:8px 12px;font-size:12.5px;line-height:1.35;opacity:0;transition:opacity .12s;transform:translate(-50%,-115%);white-space:nowrap;z-index:3}
+.tip.show{opacity:1}
+.tip b{font:600 14px var(--f-u);display:block}
+
+/* ── ledger rows / feed / bars ──────────────────────────── */
+.perf-row,.feed-row,.trend-row{padding:13px 0;border-bottom:1px dashed var(--line)}
+.perf-row:last-child,.feed-row:last-child,.trend-row:last-child{border-bottom:0}
+.perf-top{display:flex;align-items:center;gap:12px}
+.perf-top>div:nth-child(2){flex:1;min-width:0}
+.perf-top b{display:block;line-height:1.25}
+.perf-nums{text-align:right}
+.perf-nums b{font:500 22px var(--f-d);line-height:1}
+.bar{height:6px;background:var(--paper-2);border-radius:99px;margin:10px 0 6px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--green);border-radius:99px;transition:width .9s cubic-bezier(.3,.7,.3,1)}
+.bar.amber i{background:var(--amber)}
+.perf-sub{display:flex;justify-content:space-between;font-size:12.5px;color:var(--ink-2)}
+.conv{font-weight:600;color:var(--green)}
+.fav{width:34px;height:34px;border-radius:50%;background:#DCE7DB;color:var(--green);font-weight:600;font-size:12px;
+  display:grid;place-items:center;border:1.5px solid #B7CCBA;flex:none}
+.fav.alt{background:var(--amber-soft);color:var(--amber-deep);border-color:#E0C187}
+.fav.big{width:52px;height:52px;font-size:16px}
+.feed-row{display:flex;align-items:center;gap:12px}
+.feed-main{flex:1;min-width:0}
+.feed-main b{display:block;line-height:1.3}
+.feed-side{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:5px}
+.ago{font-size:12px;color:var(--ink-2)}
+.pill{font:600 11.5px var(--f-u);border-radius:999px;padding:3px 11px;display:inline-block}
+.st{border:1px solid transparent;border-radius:999px;padding:5px 26px 5px 13px;font:600 12.5px var(--f-u);cursor:pointer}
+.st-new{background:#F6E7C2;color:#7C530F;border-color:#E2C68C}
+.st-contacted{background:var(--paper-2);color:#57503B;border-color:var(--line-2)}
+.st-couns{background:#D8E6DC;color:var(--green);border-color:#B2CCBB}
+.st-enr{background:var(--green);color:var(--cream);border-color:var(--green)}
+.trend-row{display:grid;grid-template-columns:110px 1fr 62px;gap:14px;align-items:center}
+.trend-row .bar{margin:0}
+.trend-row b{font-weight:600;font-size:14px}
+.tdelta{display:flex;align-items:center;gap:3px;font:600 12.5px var(--f-u);color:var(--green);justify-content:flex-end}
+.tdelta svg.lucide{width:13px;height:13px}
+.tcount{font:600 12.5px var(--f-u);color:var(--ink-2);text-align:right}
+.you{background:#FDF6E7;border-radius:10px;padding-left:10px;padding-right:10px;margin-left:-10px;margin-right:-10px}
+.subj-grid{display:grid;grid-template-columns:1fr 1fr;column-gap:34px}
+
+/* ── student bits ───────────────────────────────────────── */
+.hello{margin-bottom:24px}
+.hello h3{font:500 30px var(--f-d);letter-spacing:-.015em}
+.hello p{color:var(--ink-2)}
+.tl{display:flex;padding:8px 0 4px}
+.tl-step{flex:1;position:relative}
+.tl-step:not(:last-child)::after{content:'';position:absolute;top:14px;left:36px;right:14px;height:1.5px;background:var(--line-2)}
+.tl-step.done:not(:last-child)::after{background:var(--green)}
+.tl-dot{width:29px;height:29px;border-radius:50%;border:1.5px solid var(--line-2);display:grid;place-items:center;
+  font:600 13px var(--f-u);background:var(--card);position:relative;z-index:1;margin-bottom:10px}
+.tl-dot svg.lucide{width:14px;height:14px}
+.tl-step.done .tl-dot{background:var(--green);border-color:var(--green);color:var(--cream)}
+.tl-step.cur .tl-dot{border-color:var(--amber);color:var(--amber-deep);box-shadow:0 0 0 4px var(--amber-soft)}
+.tl-step b{display:block;font-size:14px}
+.tl-step .hint{display:block}
+.counsellor-card{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+.counsellor-card b{display:block;font-size:16px}
+.c-lines div{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px dashed var(--line);font-size:14px}
+.c-lines div:last-child{border-bottom:0}
+.c-lines svg.lucide{width:15px;height:15px;color:var(--green)}
+.dl{display:grid;grid-template-columns:repeat(3,1fr);gap:18px 26px;margin-top:6px}
+.dl div span{display:block;font:600 10.5px var(--f-u);letter-spacing:.13em;text-transform:uppercase;color:var(--ink-2);margin-bottom:3px}
+.dl div b{font-weight:600;font-size:14px}
+
+/* ── table ──────────────────────────────────────────────── */
+.tbl-wrap{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:8px 20px 14px}
+.tbl-tools{display:flex;justify-content:space-between;align-items:center;padding:12px 2px}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font:600 11px var(--f-u);letter-spacing:.13em;text-transform:uppercase;color:var(--ink-2);
+  padding:10px 12px;border-bottom:1.5px solid var(--ink)}
+td{padding:12px;border-bottom:1px dashed var(--line);font-size:14px}
+tr:last-child td{border-bottom:0}
+tbody tr{transition:background .12s;cursor:pointer}
+tbody tr:hover{background:#F3F0E5}
+.tcell{display:flex;align-items:center;gap:11px}
+.tcell b{font-weight:600}
+.tcell .hint{display:block}
+
+/* ── modal & toasts ─────────────────────────────────────── */
+.overlay{position:fixed;inset:0;background:rgba(15,29,23,.45);display:grid;place-items:center;z-index:50;animation:fadein .18s}
+.modal{background:var(--card);border-radius:16px;padding:28px 28px 22px;width:min(430px,92vw);
+  border-top:4px solid var(--green);animation:rise .22s ease}
+.modal h3{font:500 22px var(--f-d);margin-bottom:2px}
+.modal .hint{margin-bottom:20px}
+.modal-x{float:right;color:var(--ink-2);padding:4px;margin:-6px -8px 0 0}
+#toasts{position:fixed;right:22px;bottom:22px;display:flex;flex-direction:column;gap:10px;z-index:60}
+.toast{display:flex;align-items:center;gap:11px;background:var(--ink);color:var(--cream);border-radius:12px;
+  padding:13px 18px 13px 14px;font-size:14px;font-weight:500;border-left:4px solid var(--amber);
+  animation:toast-in .28s cubic-bezier(.3,1.3,.5,1);max-width:340px}
+.toast svg.lucide{width:17px;height:17px;color:var(--amber)}
+.toast.out{opacity:0;transform:translateY(8px);transition:.3s}
+@keyframes toast-in{from{opacity:0;transform:translateY(14px)}}
+
+/* ── live badge ─────────────────────────────────────────── */
+.live-badge{display:inline-flex;align-items:center;gap:7px;font:600 11px var(--f-u);letter-spacing:.12em;
+  text-transform:uppercase;color:var(--green);border:1px solid #B2CCBB;background:#E7F0E9;
+  border-radius:999px;padding:4px 12px;transition:all .2s}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:blink 1.6s ease infinite}
+.live-badge.flash{background:var(--amber-soft);border-color:var(--amber);color:var(--amber-deep)}
+.live-badge.flash .live-dot{background:var(--amber)}
+
+/* ── magic link + history ───────────────────────────────── */
+.or-div{display:flex;align-items:center;gap:12px;margin:18px 0 14px;color:var(--ink-2);
+  font:600 11px var(--f-u);letter-spacing:.16em;text-transform:uppercase}
+.or-div::before,.or-div::after{content:'';flex:1;height:1px;background:var(--line-2)}
+.hist-ic{color:var(--green)}
+
+/* ── responsive ─────────────────────────────────────────── */
+@media (max-width:1060px){
+  .grid-2{grid-template-columns:1fr}
+  .dl{grid-template-columns:1fr 1fr}
+  .statline{flex-wrap:wrap}
+  .stat{min-width:45%}
+}
+@media (max-width:900px){
+  .auth{grid-template-columns:1fr}
+  .brand{display:none}
+  .shell{grid-template-columns:1fr}
+  .rail{position:static;height:auto;flex-direction:row;align-items:center;flex-wrap:wrap;padding:12px 16px}
+  .rail-head{border:0;padding:0 14px 0 0;margin:0}
+  .rail-nav{flex-direction:row;flex-wrap:wrap}
+  .rail-foot{margin:0;border:0;padding:0}
+  .frow{grid-template-columns:1fr}
+  .subj-grid{grid-template-columns:1fr}
+  .search{min-width:0}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toasts"></div>
+<div id="modal-root"></div>
+
+<script>
+/* ═══════════════════════════ CampusPulse SPA ═══════════════════════════ */
+const $ = (s, r = document) => r.querySelector(s);
+const app = $('#app');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+const icons = () => window.lucide && lucide.createIcons();
+
+let me = null, dash = null, currentSection = 'overview';
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, {
+    method: opts.method || 'GET',
+    headers: { 'Content-Type': 'application/json' },
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw d;
+  return d;
+}
+function goto(h) { if (location.hash === h) route(); else location.hash = h; }
+const initials = n => n.split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+const hash2 = s => [...s].reduce((a, c) => a + c.charCodeAt(0), 0);
+function ago(t) {
+  const s = (Date.now() - t) / 1000;
+  if (s < 60) return 'just now';
+  if (s < 3600) return Math.floor(s / 60) + 'm ago';
+  if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+  return Math.floor(s / 86400) + 'd ago';
+}
+const fmtDate = t => new Date(t).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+const todayISO = () => new Date().toISOString().slice(0, 10);
+
+const STATUS_L = { new: 'New', contacted: 'Contacted', counselling: 'In counselling', enrolled: 'Enrolled' };
+const PILL = { new: 'st-new', contacted: 'st-contacted', counselling: 'st-couns', enrolled: 'st-enr' };
+const EXAMS = [['JEE Main',92,'+12%'],['NEET-UG',85,'+9%'],['CUET-UG',74,'+18%'],['IELTS',66,'+14%'],['CAT',58,'+6%'],['GATE',47,'+4%']];
+
+function toast(msg, icon = 'check-circle-2') {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.innerHTML = `<i data-lucide="${icon}"></i><span>${esc(msg)}</span>`;
+  $('#toasts').append(t); icons();
+  setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 320); }, 3400);
+}
+function countUps(scope) {
+  scope.querySelectorAll('[data-count]').forEach(el => {
+    const val = +el.dataset.count, t0 = performance.now();
+    (function f(t) {
+      const k = Math.min(1, (t - t0) / 950), e = 1 - Math.pow(1 - k, 3);
+      el.textContent = Math.round(val * e).toLocaleString('en-IN');
+      if (k < 1) requestAnimationFrame(f);
+    })(t0);
+  });
+}
+function animBars(scope) {
+  requestAnimationFrame(() => requestAnimationFrame(() =>
+    scope.querySelectorAll('[data-w]').forEach(b => b.style.width = b.dataset.w + '%')));
+}
+
+/* ── shared brand pieces ────────────────────────────────── */
+const PULSE_D = 'M0 40 H90 L104 40 112 16 124 60 134 40 H240 L252 40 260 24 270 52 280 40 H400 L412 40 420 10 432 64 444 40 H560 L570 40 578 30 588 50 596 40 H640';
+const logoMark = (s = 26) => `<svg width="${s}" height="${s}" viewBox="0 0 32 32" fill="none"><rect x="1.5" y="1.5" width="29" height="29" rx="9" stroke="currentColor" stroke-width="2"/><path d="M7 17h4.4l2.1-5.4 3.6 9.4 2-4H25" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const sealSVG = () => `<svg viewBox="0 0 160 160">
+  <defs><path id="cir" d="M80,80 m-58,0 a58,58 0 1,1 116,0 a58,58 0 1,1 -116,0"/></defs>
+  <circle cx="80" cy="80" r="74" fill="none" stroke="rgba(242,237,221,.3)"/>
+  <circle cx="80" cy="80" r="44" fill="none" stroke="rgba(242,237,221,.3)"/>
+  <text font-size="10.5" letter-spacing="2.6" fill="#EBC684"><textPath href="#cir" textLength="358" lengthAdjust="spacing">LIVE GUIDANCE • CAMPUSPULSE • EST 2025 •</textPath></text>
+  <path d="M56 80h13l5-14 9 26 6-12h17" stroke="#E39A2E" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+function brandPanel() {
+  return `<aside class="brand">
+    <div class="brand-top">${logoMark(28)}<span class="wordmark">Campus<em>Pulse</em></span></div>
+    <div class="brand-mid">
+      <div class="seal">${sealSVG()}</div>
+      <div class="eyebrow">Student guidance platform</div>
+      <h1>The right counsellor,<br><em>right on time.</em></h1>
+      <p class="lede">One live workspace where students, counsellors and the superadmin move together — registrations, momentum and milestones, all on one pulse.</p>
+    </div>
+    <div class="brand-foot">
+      <svg class="pulse" viewBox="0 0 640 70" preserveAspectRatio="none">
+        <path class="pulse-base" d="${PULSE_D}"/><path class="pulse-run" d="${PULSE_D}"/>
+      </svg>
+      <div class="ticker"><span class="dot"></span><span id="ticker-text">Connecting to the live feed…</span></div>
+    </div>
+  </aside>`;
+}
+
+/* ── ticker + live socket ───────────────────────────────── */
+function liveTick(it) {
+  const el = $('#ticker-text');
+  if (el && it) el.textContent = `${it.name} from ${it.city} registered ${ago(it.at)}`;
+}
+function startTicker() {                     // polling fallback (auth pages)
+  const tick = async () => {
+    try {
+      const { items } = await api('/api/pulse');
+      if (items.length) liveTick(items[Math.floor(Math.random() * Math.min(items.length, 5))]);
+    } catch {}
+  };
+  tick();
+  clearInterval(window._tick);
+  window._tick = setInterval(tick, 5000);
+}
+let ws = null, refreshTimer = null;
+function connectWS() {
+  if (ws) return;
+  try { ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws'); }
+  catch { return; }
+  ws.onmessage = e => {
+    let m; try { m = JSON.parse(e.data); } catch { return; }
+    if (m.type === 'pulse') liveTick(m.payload);
+    if (m.type === 'staff') staffEvent(m.payload);
+  };
+  ws.onclose = () => { ws = null; if (me) setTimeout(connectWS, 2500); };
+}
+function staffEvent(p) {
+  flashLive();
+  if (p.reason === 'student:new')     toast(`New registration: ${p.name} → ${p.counsellor}`, 'user-plus');
+  if (p.reason === 'status')          toast(`${p.name} → ${STATUS_L[p.status]}`, 'refresh-cw');
+  if (p.reason === 'session:new')     toast(`${p.name} requested a session (${p.date})`, 'calendar-plus');
+  if (p.reason === 'counsellor:new')  toast(`Counsellor ${p.name} joined the team`, 'user-plus');
+  queueRefresh();
+}
+function refreshBlocked() {
+  const ae = document.activeElement;
+  return $('#modal-root').innerHTML || (ae && /INPUT|TEXTAREA|SELECT/.test(ae.tagName));
+}
+function queueRefresh() {
+  if (!me || me.role === 'student') return;
+  if (refreshBlocked()) { clearTimeout(refreshTimer); refreshTimer = setTimeout(queueRefresh, 1600); return; }
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(async () => {
+    try {
+      const q = $('#st-search') ? $('#st-search').value : '';
+      dash = await api('/api/dashboard');
+      renderSection(currentSection);
+      if (q && $('#st-search')) { $('#st-search').value = q; $('#st-search').dispatchEvent(new Event('input')); }
+    } catch {}
+  }, 800);
+}
+function flashLive() {
+  const b = $('#live-badge'); if (!b) return;
+  b.classList.add('flash');
+  setTimeout(() => b.classList.remove('flash'), 1400);
+}
+
+/* ── login ──────────────────────────────────────────────── */
+function renderLogin() {
+  app.innerHTML = `<div class="auth">${brandPanel()}
+    <main class="auth-main"><div class="auth-box">
+      <h2 class="auth-title">Welcome back</h2>
+      <p class="auth-sub">Sign in to your CampusPulse workspace.</p>
+      <form id="f-login" novalidate>
+        <div class="field" id="fw-lemail"><label for="l-email">Email</label>
+          <input id="l-email" type="email" autocomplete="email" placeholder="you@campuspulse.edu"><p class="err-msg"></p></div>
+        <div class="field" id="fw-lpass"><label for="l-pass">Password</label>
+          <div class="pass-wrap"><input id="l-pass" type="password" autocomplete="current-password" placeholder="••••••••">
+            <button type="button" class="peek" data-target="l-pass"><i data-lucide="eye"></i></button></div><p class="err-msg"></p></div>
+        <p id="l-error" class="form-error" hidden></p>
+        <button class="btn btn-primary btn-wide" type="submit">Sign in <i data-lucide="arrow-right"></i></button>
+      </form>
+      <div class="or-div">or</div>
+      <button type="button" class="btn btn-ghost btn-wide" id="magic-btn"><i data-lucide="wand-2"></i>Email me a sign-in link</button>
+      <p id="magic-msg" class="hint" style="margin-top:10px;text-align:center;min-height:18px"></p>
+      <p class="auth-alt">New student? <a href="#/register">Create your account</a></p>
+      <div class="demo">
+        <div class="demo-h">Demo accounts — click to fill</div>
+        ${[['Superadmin','admin@campuspulse.edu','Admin@123'],
+           ['Counsellor','rahul@campuspulse.edu','Counsel@123'],
+           ['Student','aarav@student.campuspulse.edu','Student@123']]
+          .map(([r, e, p]) => `<button type="button" class="demo-row" data-email="${e}" data-pass="${p}">
+            <span class="demo-role">${r}</span><span class="demo-cred">${e}</span><span class="demo-pass">${p}</span></button>`).join('')}
+      </div>
+    </div></main></div>`;
+  icons(); startTicker();
+
+  document.querySelectorAll('.peek').forEach(b => b.addEventListener('click', () => {
+    const i = $('#' + b.dataset.target);
+    i.type = i.type === 'password' ? 'text' : 'password';
+    b.innerHTML = `<i data-lucide="${i.type === 'password' ? 'eye' : 'eye-off'}"></i>`; icons();
+  }));
+  document.querySelectorAll('.demo-row').forEach(b => b.addEventListener('click', () => {
+    $('#l-email').value = b.dataset.email; $('#l-pass').value = b.dataset.pass;
+    b.classList.add('fill'); setTimeout(() => b.classList.remove('fill'), 700);
+  }));
+  $('#magic-btn').addEventListener('click', async () => {
+    const email = $('#l-email').value.trim(), fw = $('#fw-lemail');
+    fw.classList.remove('err');
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
+      fw.classList.add('err'); fw.querySelector('.err-msg').textContent = 'Type your email above first, then tap the link button.';
+      return;
+    }
+    const btn = $('#magic-btn'), msg = $('#magic-msg');
+    btn.disabled = true; btn.style.opacity = .6;
+    try {
+      const r = await api('/api/magiclink', { method: 'POST', body: { email } });
+      msg.innerHTML = r.sent
+        ? '📬 Link sent — check your inbox (and spam). It expires in 1 hour.'
+        : 'No student account with that email. <a href="#/register">Create one →</a>';
+    } catch { msg.textContent = 'Could not send the link right now — try again in a minute.'; }
+    btn.disabled = false; btn.style.opacity = 1;
+  });
+  $('#f-login').addEventListener('submit', async e => {
+    e.preventDefault();
+    const email = $('#l-email').value.trim(), password = $('#l-pass').value;
+    const err = $('#l-error'); err.hidden = true;
+    $('#fw-lemail').classList.toggle('err', !email);
+    $('#fw-lpass').classList.toggle('err', !password);
+    if (!email || !password) return;
+    try {
+      const { user } = await api('/api/login', { method: 'POST', body: { email, password } });
+      me = user; dash = null;
+      toast(`Signed in as ${user.name}`);
+      goto('#/dashboard');
+    } catch (d) { err.textContent = d.error || 'Could not sign in.'; err.hidden = false; }
+  });
+}
+
+/* ── registration wizard ────────────────────────────────── */
+const SUBJ = ['Physics','Chemistry','Mathematics','Biology','Computer Science','Accountancy','Business Studies','Economics','English','History','Political Science','Psychology'];
+const GRADES = ['Class 11','Class 12','Dropper','Undergraduate','Graduate'];
+const STREAMS = ['Science','Commerce','Arts / Humanities'];
+const GOALS = ['Engineering (JEE)','Medical (NEET)','Study Abroad','Government Exams','Placement & Skills','Still exploring'];
+const MODES = ['Online','In-person','Either'];
+const HEARD = ['Instagram','YouTube','Friend / Family','School','Google Search','Other'];
+
+const Fld = (id, label, type, ph, extra = '') =>
+  `<div class="field" id="fw-${id}"><label for="r-${id}">${label}</label><input id="r-${id}" type="${type}" placeholder="${ph}" ${extra}><p class="err-msg"></p></div>`;
+const Sel = (id, label, opts, ph) =>
+  `<div class="field" id="fw-${id}"><label for="r-${id}">${label}</label><select id="r-${id}"><option value="">${ph}</option>${opts.map(o => `<option>${o}</option>`).join('')}</select><p class="err-msg"></p></div>`;
+
+let regStep = 1;
+const reg = { subjects: [], mode: '' };
+
+function renderRegister() {
+  if (me) return goto('#/dashboard');
+  app.innerHTML = `<div class="auth">${brandPanel()}
+    <main class="auth-main"><div class="auth-box wide">
+      <h2 class="auth-title">Create your student account</h2>
+      <p class="auth-sub">Three quick steps — your counsellor is assigned instantly.</p>
+      <ol class="steps" id="steps">
+        <li data-s="1"><span class="snum">1</span><span class="slbl">About you</span></li>
+        <li data-s="2"><span class="snum">2</span><span class="slbl">Education</span></li>
+        <li data-s="3"><span class="snum">3</span><span class="slbl">Goals</span></li>
+      </ol>
+      <form id="f-reg" novalidate>
+        <div class="pane" data-p="1">
+          ${Fld('name', 'Full name', 'text', 'e.g. Aarav Sharma')}
+          ${Fld('email', 'Email', 'email', 'you@example.com')}
+          <div class="frow">
+            ${Fld('phone', 'Phone', 'tel', '10-digit mobile number')}
+            ${Fld('dob', 'Date of birth', 'date', '', `max="${todayISO()}"`)}
+          </div>
+          ${Sel('gender', 'Gender', ['Male', 'Female', 'Other', 'Prefer not to say'], 'Select…')}
+          <div class="frow">
+            ${Fld('pass', 'Password', 'password', '6+ characters')}
+            ${Fld('confirm', 'Confirm password', 'password', 'Repeat password')}
+          </div>
+        </div>
+        <div class="pane" data-p="2" hidden>
+          <div class="frow">
+            ${Sel('grade', 'Currently in', GRADES, 'Select grade…')}
+            ${Sel('stream', 'Stream', STREAMS, 'Select stream…')}
+          </div>
+          ${Fld('school', 'School / College', 'text', 'Institution name')}
+          ${Fld('city', 'City', 'text', 'e.g. Kota')}
+          <div class="field" id="fw-subjects"><label>Subjects you're pursuing</label>
+            <div class="chips" id="subj-chips">${SUBJ.map(s => `<button type="button" class="chip" data-v="${s}">${s}</button>`).join('')}</div>
+            <p class="err-msg"></p></div>
+        </div>
+        <div class="pane" data-p="3" hidden>
+          ${Sel('goal', 'Primary goal', GOALS, 'What are you aiming for?')}
+          <div class="field" id="fw-mode"><label>Preferred counselling mode</label>
+            <div class="pills" id="mode-pills">${MODES.map(m => `<button type="button" class="chip" data-v="${m}">${m}</button>`).join('')}</div>
+            <p class="err-msg"></p></div>
+          ${Sel('hear', 'How did you hear about us?', HEARD, 'Select…')}
+          <label class="check" id="fw-consent"><input type="checkbox" id="r-consent">
+            <span>I agree to be contacted by my assigned counsellor and accept the platform terms.</span></label>
+        </div>
+        <p id="reg-err" class="form-error" hidden></p>
+        <div class="wiz-nav">
+          <button type="button" class="btn btn-ghost" id="wiz-back" hidden>Back</button>
+          <button type="button" class="btn btn-primary" id="wiz-next">Continue <i data-lucide="arrow-right"></i></button>
+        </div>
+      </form>
+    </div></main></div>`;
+  icons(); clearInterval(window._tick); regStep = 1; reg.subjects = []; reg.mode = '';
+
+  $('#subj-chips').addEventListener('click', e => {
+    const c = e.target.closest('.chip'); if (!c) return;
+    c.classList.toggle('on');
+    reg.subjects = [...$('#subj-chips').querySelectorAll('.on')].map(x => x.dataset.v);
+  });
+  $('#mode-pills').addEventListener('click', e => {
+    const c = e.target.closest('.chip'); if (!c) return;
+    [...$('#mode-pills').children].forEach(x => x.classList.remove('on'));
+    c.classList.add('on'); reg.mode = c.dataset.v;
+  });
+  $('#wiz-back').addEventListener('click', () => { if (regStep > 1) { regStep--; showPane(); } });
+  $('#wiz-next').addEventListener('click', async () => {
+    if (regStep < 3) { if (vStep(regStep)) { regStep++; showPane(); } return; }
+    if (!vStep(3)) return;
+    const g = id => ($('#r-' + id) || {}).value || '';
+    try {
+      const { user } = await api('/api/register', { method: 'POST', body: {
+        name: g('name'), email: g('email'), phone: g('phone'), dob: g('dob'), gender: g('gender'),
+        password: $('#r-pass').value, confirm: g('confirm'), grade: g('grade'), stream: g('stream'),
+        school: g('school'), city: g('city'), subjects: reg.subjects, goal: g('goal'),
+        mode: reg.mode, hear: g('hear'), consent: $('#r-consent').checked } });
+      me = user; dash = null;
+      toast(`Welcome aboard, ${user.name.split(' ')[0]}!`);
+      goto('#/dashboard');
+    } catch (d) { regFail(d.field, d.error); }
+  });
+
+  showPane();
+}
+function paneErr(id, msg) {
+  const w = $('#fw-' + id); if (!w) return;
+  w.classList.add('err');
+  const m = w.querySelector('.err-msg'); if (m) m.textContent = msg;
+}
+function clearPaneErrs(n) {
+  document.querySelectorAll(`.pane[data-p="${n}"] .field.err, .check.err`).forEach(w => {
+    w.classList.remove('err');
+    const m = w.querySelector('.err-msg'); if (m) m.textContent = '';
+  });
+  $('#reg-err').hidden = true;
+}
+function regFail(field, msg) {
+  const map = { name:1, email:1, phone:1, dob:1, gender:1, pass:1, confirm:1, grade:2, stream:2, school:2, city:2, subjects:2, goal:3, mode:3, hear:3, consent:3 };
+  const step = map[field] || 1;
+  if (step !== regStep) { regStep = step; showPane(); }
+  if (['subjects','mode','consent','name','email','phone','dob','gender','grade','stream','school','city','goal','hear'].includes(field)) paneErr(field, msg);
+  else { const e = $('#reg-err'); e.textContent = msg; e.hidden = false; }
+}
+function vStep(n) {
+  clearPaneErrs(n);
+  const g = id => ($('#r-' + id) || {}).value?.trim() || '';
+  let ok = true;
+  if (n === 1) {
+    if (g('name').length < 3)                        { paneErr('name', 'Please enter your full name.'); ok = false; }
+    else if (!/^\S+@\S+\.\S+$/.test(g('email')))     { paneErr('email', 'Enter a valid email address.'); ok = false; }
+    else if (!/^[+()\-\s\d]{10,16}$/.test(g('phone'))){ paneErr('phone', 'Enter a valid phone number.'); ok = false; }
+    else if (!g('dob'))                              { paneErr('dob', 'Pick your date of birth.'); ok = false; }
+    else if (!g('gender'))                           { paneErr('gender', 'Select an option.'); ok = false; }
+    else if ($('#r-pass').value.length < 6)          { paneErr('pass', 'At least 6 characters.'); ok = false; }
+    else if ($('#r-pass').value !== $('#r-confirm').value) { paneErr('confirm', 'Passwords do not match.'); ok = false; }
+  } else if (n === 2) {
+    if (!g('grade'))        { paneErr('grade', 'Select your current grade.'); ok = false; }
+    else if (!g('stream'))  { paneErr('stream', 'Select your stream.'); ok = false; }
+    else if (g('school').length < 2) { paneErr('school', 'Enter your school / college.'); ok = false; }
+    else if (g('city').length < 2)   { paneErr('city', 'Enter your city.'); ok = false; }
+    else if (!reg.subjects.length)   { paneErr('subjects', 'Pick at least one subject.'); ok = false; }
+  } else {
+    if (!g('goal'))   { paneErr('goal', 'Choose your primary goal.'); ok = false; }
+    else if (!reg.mode) { paneErr('mode', 'Choose a counselling mode.'); ok = false; }
+    else if (!g('hear')) { paneErr('hear', 'Tell us how you found us.'); ok = false; }
+    else if (!$('#r-consent').checked) { $('#fw-consent').classList.add('err'); ok = false; }
+  }
+  return ok;
+}
+function showPane() {
+  document.querySelectorAll('.pane').forEach(p => {
+    const on = +p.dataset.p === regStep;
+    p.hidden = !on;
+    if (on) { p.style.animation = 'none'; void p.offsetWidth; p.style.animation = ''; }
+  });
+  document.querySelectorAll('#steps li').forEach(li => {
+    const s = +li.dataset.s;
+    li.classList.toggle('on', s === regStep);
+    li.classList.toggle('done', s < regStep);
+  });
+  $('#wiz-back').hidden = regStep === 1;
+  $('#wiz-next').innerHTML = regStep === 3
+    ? 'Create account <i data-lucide="user-plus"></i>'
+    : 'Continue <i data-lucide="arrow-right"></i>';
+  icons();
+}
+
+/* ── dashboard shell ────────────────────────────────────── */
+const NAV = {
+  admin:      [['overview','Overview','layout-dashboard'], ['counsellors','Counsellors','users'], ['students','Students','graduation-cap']],
+  counsellor: [['overview','Overview','layout-dashboard'], ['students','My Students','graduation-cap']],
+  student:    [['overview','Overview','layout-dashboard'], ['mentor','My Counsellor','user-check'], ['trending','Trending','flame']],
+};
+const TITLES = { overview: 'Overview', students: 'Students', counsellors: 'Counsellors', mentor: 'My Counsellor', trending: 'Trending Now' };
+const ROLE_L = { admin: 'Superadmin', counsellor: 'Counsellor', student: 'Student' };
+
+async function renderDash(section) {
+  clearInterval(window._tick);
+  try { dash = await api('/api/dashboard'); }
+  catch (e) { me = null; return goto('#/login'); }
+  currentSection = section;
+  const items = NAV[me.role];
+  app.innerHTML = `<div class="shell">
+    <nav class="rail">
+      <div class="rail-head">${logoMark(26)}<div><span class="wordmark" style="font-size:17px">Campus<em>Pulse</em></span><span class="rail-role">${ROLE_L[me.role]}</span></div></div>
+      <div class="rail-nav">
+        ${items.map(([k, l, ic]) => `<button class="rail-item ${k === section ? 'on' : ''}" data-nav="${k}"><i data-lucide="${ic}"></i><span>${l}</span></button>`).join('')}
+      </div>
+      <div class="rail-foot"><button class="rail-item" id="logout"><i data-lucide="log-out"></i><span>Sign out</span></button></div>
+    </nav>
+    <div class="maincol">
+      <header class="topbar">
+        <h2>${TITLES[section]}</h2>
+        ${section === 'students' ? `<label class="search"><i data-lucide="search"></i><input id="st-search" placeholder="Search name, city, stream…"></label>` : ''}
+        <span class="live-badge" id="live-badge"><span class="live-dot"></span>Live</span>
+        <div class="top-user"><div class="fav ${hash2(me.name) % 2 ? 'alt' : ''}">${initials(me.name)}</div>
+          <div><b>${esc(me.name)}</b><span class="role-pill">${ROLE_L[me.role]}</span></div></div>
+      </header>
+      <div class="content" id="content"></div>
+    </div>
+  </div>`;
+  icons();
+  document.querySelectorAll('[data-nav]').forEach(b => b.addEventListener('click', () => goto('#/' + b.dataset.nav)));
+  $('#logout').addEventListener('click', async () => {
+    await api('/api/logout', { method: 'POST' });
+    if (ws) { ws.onclose = null; ws.close(); ws = null; }
+    me = null; dash = null;
+    toast('Signed out. See you soon.', 'log-out');
+    goto('#/login');
+  });
+  renderSection(section);
+}
+
+function renderSection(sec) {
+  const c = $('#content');
+  if (me.role === 'student') {
+    c.innerHTML = sec === 'mentor' ? mentorHTML() : sec === 'trending' ? trendingHTML(true) : studentOverviewHTML();
+    wireStudent(sec);
+  } else if (sec === 'students') {
+    c.innerHTML = studentsHTML();
+    wireStudentsTable();
+  } else if (sec === 'counsellors') {
+    c.innerHTML = counsellorsHTML();
+    wireCounsellors();
+  } else {
+    c.innerHTML = adminOverviewHTML();
+    wireOverview();
+  }
+  icons(); countUps(c); animBars(c);
+}
+
+/* ── overview (admin + counsellor) ──────────────────────── */
+function statHTML(lbl, val, delta) {
+  return `<div class="stat"><span class="lbl">${lbl}</span><b data-count="${val}">0</b>${
+    delta != null ? `<span class="delta ${delta >= 0 ? 'up' : 'down'}"><i data-lucide="${delta >= 0 ? 'trending-up' : 'trending-down'}"></i>${Math.abs(delta)} vs last week</span>` : ''
+  }</div>`;
+}
+function adminOverviewHTML() {
+  const s = dash.stats, isAdm = me.role === 'admin';
+  const total = dash.series.reduce((a, x) => a + x.count, 0);
+  const maxStu = Math.max(1, ...(dash.perf || []).map(p => p.students));
+  const maxSub = Math.max(1, ...dash.subjects.map(x => x.count));
+  const maxStr = Math.max(1, ...dash.streams.map(x => x.count));
+  return `
+  <div class="statline">
+    ${statHTML(isAdm ? 'Total students' : 'My students', s.students)}
+    ${isAdm ? statHTML('Counsellors', s.counsellors) : ''}
+    ${statHTML('New this week', s.week, s.delta)}
+    ${statHTML('Enrolled', s.enrolled)}
+    ${!isAdm ? statHTML('Session requests', s.requests) : ''}
+  </div>
+  <section class="panel">
+    <div class="panel-head">
+      <div><h3>Registration momentum</h3><p class="hint">New students per day · last 14 days</p></div>
+      <div class="chart-total"><b data-count="${total}">0</b><span>total</span></div>
+    </div>
+    <div class="chart-wrap" id="chart"></div>
+  </section>
+  <div class="grid-2">
+    ${isAdm ? `
+    <section class="panel">
+      <div class="panel-head"><div><h3>Counsellor performance</h3><p class="hint">Students assigned &amp; conversion to enrolment</p></div></div>
+      ${[...dash.perf].sort((a, b) => b.students - a.students).map(cn => {
+        const conv = cn.students ? Math.round(cn.enrolled / cn.students * 100) : 0;
+        return `<div class="perf-row">
+          <div class="perf-top"><div class="fav ${hash2(cn.name) % 2 ? 'alt' : ''}">${initials(cn.name)}</div>
+            <div><b>${esc(cn.name)}</b><span class="hint">${esc(cn.email)}</span></div>
+            <div class="perf-nums"><b data-count="${cn.students}">0</b><span class="hint">students</span></div></div>
+          <div class="bar"><i data-w="${Math.round(cn.students / maxStu * 100)}"></i></div>
+          <div class="perf-sub"><span>${cn.enrolled} enrolled</span><span class="conv">${conv}% conversion</span></div>
+        </div>`; }).join('')}
+    </section>` : `
+    <section class="panel">
+      <div class="panel-head"><div><h3>Your cohort at a glance</h3><p class="hint">Stream mix of your students</p></div></div>
+      ${dash.streams.map(x => `<div class="perf-row" style="padding:9px 0">
+        <div class="perf-top"><div style="flex:1"><b>${esc(x.name)}</b></div><span class="tcount">${x.count}</span></div>
+        <div class="bar"><i data-w="${Math.round(x.count / maxStr * 100)}"></i></div></div>`).join('')}
+    </section>`}
+    <section class="panel">
+      <div class="panel-head"><div><h3>Latest registrations</h3><p class="hint">Newest students on your desk</p></div></div>
+      ${dash.recent.map(r => `<div class="feed-row">
+        <div class="fav ${hash2(r.name) % 2 ? 'alt' : ''}">${initials(r.name)}</div>
+        <div class="feed-main"><b>${esc(r.name)}</b><span class="hint">${esc(r.grade)} · ${esc(r.stream)} · ${esc(r.city)} → ${esc(r.counsellor)}</span></div>
+        <div class="feed-side"><span class="ago">${ago(r.at)}</span><span class="pill ${PILL[r.status]}">${STATUS_L[r.status]}</span></div>
+      </div>`).join('')}
+    </section>
+  </div>
+  <section class="panel">
+    <div class="panel-head"><div><h3>Rising subjects across CampusPulse</h3><p class="hint">What your students are pursuing right now</p></div></div>
+    <div class="subj-grid">${dash.subjects.map(x => `<div class="trend-row"><b>${esc(x.name)}</b>
+      <div class="bar"><i data-w="${Math.round(x.count / maxSub * 100)}"></i></div>
+      <span class="tcount">${x.count} students</span></div>`).join('')}</div>
+  </section>`;
+}
+function wireOverview() {
+  mountChart($('#chart'), dash.series);
+}
+
+/* ── chart ──────────────────────────────────────────────── */
+function smoothPath(pts) {
+  let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
+    d += ` C${(p1[0] + (p2[0] - p0[0]) / 6).toFixed(1)},${(p1[1] + (p2[1] - p0[1]) / 6).toFixed(1)} ${(p2[0] - (p3[0] - p1[0]) / 6).toFixed(1)},${(p2[1] - (p3[1] - p1[1]) / 6).toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
+  }
+  return d;
+}
+function mountChart(el, series) {
+  if (!el) return;
+  const W = 760, H = 232, PL = 38, PR = 14, PT = 16, PB = 30;
+  const data = series.map(s => s.count);
+  const nice = Math.max(4, Math.ceil(Math.max(...data) / 4) * 4);
+  const X = i => PL + i * (W - PL - PR) / (data.length - 1);
+  const Y = v => PT + (1 - v / nice) * (H - PT - PB);
+  const pts = data.map((v, i) => [X(i), Y(v)]);
+  const line = smoothPath(pts);
+  const area = `${line} L${X(data.length - 1).toFixed(1)},${Y(0)} L${X(0).toFixed(1)},${Y(0).toFixed(1)} Z`;
+  const grid = [0, nice / 2, nice].map(v =>
+    `<line class="grid-ln" x1="${PL}" y1="${Y(v)}" x2="${W - PR}" y2="${Y(v)}"/><text class="ax" x="${PL - 8}" y="${Y(v) + 4}" text-anchor="end">${v}</text>`).join('');
+  const xl = series.map((s, i) => i % 2 === 0 ? `<text class="ax" x="${X(i)}" y="${H - 8}" text-anchor="middle">${s.label}</text>` : '').join('');
+  const dots = pts.map(p => `<circle class="chart-dotp" cx="${p[0]}" cy="${p[1]}" r="3"/>`).join('');
+
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}">
+    ${grid}${xl}
+    <path class="chart-area" d="${area}"/>
+    <path class="chart-line" d="${line}" pathLength="1"/>
+    ${dots}
+    <line class="xhair" id="xh" y1="${PT}" y2="${H - PB}"/>
+    <rect x="${PL}" y="${PT}" width="${W - PL - PR}" height="${H - PT - PB}" fill="transparent" id="hover"/>
+  </svg><div class="tip" id="tip"></div>`;
+
+  const svg = el.querySelector('svg'), tip = $('#tip', el), xh = $('#xh', el);
+  svg.addEventListener('mousemove', e => {
+    const r = svg.getBoundingClientRect();
+    const px = (e.clientX - r.left) * (W / r.width);
+    let idx = Math.round((px - PL) / ((W - PL - PR) / (data.length - 1)));
+    idx = Math.max(0, Math.min(data.length - 1, idx));
+    xh.setAttribute('x1', X(idx)); xh.setAttribute('x2', X(idx)); xh.style.opacity = .4;
+    tip.innerHTML = `<b>${data[idx]} registration${data[idx] === 1 ? '' : 's'}</b><span>${series[idx].label}</span>`;
+    tip.style.left = (X(idx) / W * r.width) + 'px';
+    tip.style.top = (Y(data[idx]) / H * r.height) + 'px';
+    tip.classList.add('show');
+  });
+  svg.addEventListener('mouseleave', () => { tip.classList.remove('show'); xh.style.opacity = 0; });
+}
+
+/* ── students table ─────────────────────────────────────── */
+function studentsHTML() {
+  const isAdm = me.role === 'admin';
+  return `<div class="tbl-wrap">
+    <div class="tbl-tools"><b>${dash.students.length} student${dash.students.length === 1 ? '' : 's'}</b>
+      <div style="display:flex;align-items:center;gap:14px">
+        <span class="hint">Click a row for status history · change status from the dropdown</span>
+        <a class="btn btn-ghost" style="padding:8px 14px" href="/api/export/students" download><i data-lucide="download"></i>Export CSV</a>
+      </div></div>
+    <table><thead><tr><th>Student</th><th>Grade</th><th>Stream</th><th>City</th>${isAdm ? '<th>Counsellor</th>' : ''}<th>Status</th><th>Registered</th></tr></thead>
+    <tbody id="st-body">${dash.students.map(studentRow).join('')}</tbody></table>
+  </div>`;
+}
+function studentRow(s) {
+  const isAdm = me.role === 'admin';
+  return `<tr data-key="${esc((s.name + ' ' + s.email + ' ' + s.city + ' ' + s.stream).toLowerCase())}" data-sid="${s.id}">
+    <td><div class="tcell"><div class="fav ${hash2(s.name) % 2 ? 'alt' : ''}">${initials(s.name)}</div>
+      <div><b>${esc(s.name)}</b><span class="hint">${esc(s.email)}</span></div></div></td>
+    <td>${esc(s.grade)}</td><td>${esc(s.stream)}</td><td>${esc(s.city)}</td>
+    ${isAdm ? `<td>${esc(s.counsellor)}</td>` : ''}
+    <td><select class="st ${PILL[s.status]}" data-sid="${s.id}" data-name="${esc(s.name)}">
+      ${Object.keys(STATUS_L).map(k => `<option value="${k}" ${k === s.status ? 'selected' : ''}>${STATUS_L[k]}</option>`).join('')}
+    </select></td>
+    <td class="hint">${ago(s.at)}</td></tr>`;
+}
+function wireStudentsTable() {
+  const inp = $('#st-search');
+  if (inp) inp.addEventListener('input', () => {
+    const q = inp.value.trim().toLowerCase();
+    let n = 0;
+    document.querySelectorAll('#st-body tr').forEach(tr => {
+      const show = !q || tr.dataset.key.includes(q);
+      tr.style.display = show ? '' : 'none'; if (show) n++;
+    });
+    $('.tbl-tools b').textContent = `${n} student${n === 1 ? '' : 's'}`;
+  });
+  $('#st-body').addEventListener('change', async e => {
+    const sel = e.target.closest('.st'); if (!sel) return;
+    try {
+      await api(`/api/students/${sel.dataset.sid}/status`, { method: 'PATCH', body: { status: sel.value } });
+      const row = dash.students.find(x => x.id === +sel.dataset.sid);
+      if (row) row.status = sel.value;
+      sel.className = 'st ' + PILL[sel.value];
+      toast(`${sel.dataset.name} → ${STATUS_L[sel.value]}`);
+    } catch (d) { toast(d.error || 'Could not update', 'alert-triangle'); }
+  });
+  $('#st-body').addEventListener('click', e => {
+    if (e.target.closest('.st')) return;              // ignore the status dropdown
+    const tr = e.target.closest('tr[data-sid]'); if (!tr) return;
+    openHistory(+tr.dataset.sid, tr.querySelector('.tcell b').textContent);
+  });
+}
+
+/* ── status history modal ───────────────────────────────── */
+async function openHistory(sid, name) {
+  openModal(`<button class="modal-x" id="mx"><i data-lucide="x"></i></button>
+    <h3>${esc(name)}</h3><p class="hint">Status history — newest first</p>
+    <div id="hist-body"><p class="hint">Loading…</p></div>`);
+  icons();
+  $('#mx').addEventListener('click', closeModal);
+  try {
+    const { items } = await api(`/api/students/${sid}/history`);
+    $('#hist-body').innerHTML = items.length ? items.map(h => `
+      <div class="feed-row"><i data-lucide="flag" class="hist-ic"></i>
+        <div class="feed-main"><b>${h.from ? esc(STATUS_L[h.from]) + ' → ' : ''}${esc(STATUS_L[h.to])}</b>
+        <span class="hint">${h.by ? 'by ' + esc(h.by) : 'self-registration'} · ${ago(h.at)}</span></div></div>`).join('')
+      : '<p class="hint">No changes recorded yet.</p>';
+  } catch { $('#hist-body').innerHTML = '<p class="hint">Could not load history.</p>'; }
+  icons();
+}
+
+/* ── counsellors (superadmin) ───────────────────────────── */
+function counsellorsHTML() {
+  const maxStu = Math.max(1, ...dash.perf.map(p => p.students));
+  return `<section class="panel">
+    <div class="panel-head"><div><h3>Counsellor team</h3><p class="hint">Everyone managing student desks under you</p></div>
+      <button class="btn btn-primary" id="add-con"><i data-lucide="user-plus"></i> Add counsellor</button></div>
+    ${[...dash.perf].sort((a, b) => b.students - a.students).map(cn => {
+      const conv = cn.students ? Math.round(cn.enrolled / cn.students * 100) : 0;
+      return `<div class="perf-row">
+        <div class="perf-top"><div class="fav ${hash2(cn.name) % 2 ? 'alt' : ''}">${initials(cn.name)}</div>
+          <div><b>${esc(cn.name)}</b><span class="hint">${esc(cn.email)} · joined ${fmtDate(cn.joined)}</span></div>
+          <div class="perf-nums"><b data-count="${cn.students}">0</b><span class="hint">students</span></div></div>
+        <div class="bar"><i data-w="${Math.round(cn.students / maxStu * 100)}"></i></div>
+        <div class="perf-sub"><span>${cn.enrolled} enrolled</span><span class="conv">${conv}% conversion</span></div>
+      </div>`; }).join('')}
+  </section>`;
+}
+function wireCounsellors() {
+  $('#add-con').addEventListener('click', () => {
+    openModal(`<button class="modal-x" id="mx"><i data-lucide="x"></i></button>
+      <h3>Add a counsellor</h3><p class="hint">They can sign in immediately with the password you set.</p>
+      <form id="f-con" novalidate>
+        ${Fld('cname', 'Full name', 'text', 'e.g. Priya Nair')}
+        ${Fld('cemail', 'Email', 'email', 'priya@campuspulse.edu')}
+        ${Fld('cpass', 'Temporary password', 'text', '6+ characters')}
+        <p id="c-err" class="form-error" hidden></p>
+        <button class="btn btn-primary btn-wide">Create counsellor <i data-lucide="user-plus"></i></button>
+      </form>`);
+    icons();
+    $('#mx').addEventListener('click', closeModal);
+    $('#f-con').addEventListener('submit', async e => {
+      e.preventDefault();
+      try {
+        const { user } = await api('/api/counsellors', { method: 'POST', body: {
+          name: $('#r-cname').value, email: $('#r-cemail').value, password: $('#r-cpass').value } });
+        closeModal(); toast(`Counsellor ${user.name} added`);
+        dash = await api('/api/dashboard'); renderSection('counsellors');
+      } catch (d) {
+        const err = $('#c-err'); err.textContent = d.error || 'Could not add.'; err.hidden = false;
+        if (d.field === 'name') $('#r-cname').focus();
+        if (d.field === 'email') $('#r-cemail').focus();
+        if (d.field === 'password') $('#r-cpass').focus();
+      }
+    });
+  });
+}
+function openModal(html) {
+  $('#modal-root').innerHTML = `<div class="overlay" id="ov"><div class="modal">${html}</div></div>`;
+  $('#ov').addEventListener('click', e => { if (e.target.id === 'ov') closeModal(); });
+}
+const closeModal = () => $('#modal-root').innerHTML = '';
+
+/* ── student views ──────────────────────────────────────── */
+function studentOverviewHTML() {
+  const d = dash, p = d.profile, c = d.counsellor;
+  const curIdx = d.timeline.findIndex(t => !t.done);
+  const h = new Date().getHours();
+  const dayPart = h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening';
+  return `
+  <div class="hello"><h3>Good ${dayPart}, ${esc(p.name.split(' ')[0])}.</h3>
+    <p>Here's where your journey stands — member since ${fmtDate(p.joined)}.</p></div>
+  <section class="panel">
+    <div class="panel-head"><div><h3>Your journey</h3><p class="hint">From sign-up to enrolment</p></div>
+      <span class="pill ${PILL[p.status]}">${STATUS_L[p.status]}</span></div>
+    <div class="tl">${d.timeline.map((t, i) => `<div class="tl-step ${t.done ? 'done' : ''} ${i === curIdx ? 'cur' : ''}">
+      <span class="tl-dot">${t.done ? '<i data-lucide="check"></i>' : i + 1}</span><b>${t.key}</b><span class="hint">${t.sub}</span></div>`).join('')}</div>
+    ${(d.history || []).length ? `<div style="margin-top:16px;border-top:1px dashed var(--line);padding-top:12px">
+      <p class="hint" style="font-weight:600;text-transform:uppercase;letter-spacing:.12em;font-size:10.5px;margin-bottom:4px">Recent status changes</p>
+      ${d.history.map(x => `<div class="feed-row"><i data-lucide="flag" class="hist-ic"></i>
+        <div class="feed-main"><b>${x.from ? esc(STATUS_L[x.from]) + ' → ' : ''}${esc(STATUS_L[x.to])}</b>
+        <span class="hint">${x.by ? 'by ' + esc(x.by) : 'self-registration'} · ${ago(x.at)}</span></div></div>`).join('')}
+    </div>` : ''}
+  </section>
+  <div class="grid-2">
+    <section class="panel">
+      <div class="panel-head"><div><h3>Your counsellor</h3><p class="hint">Assigned automatically at registration</p></div></div>
+      ${c ? `<div class="counsellor-card"><div class="fav big ${hash2(c.name) % 2 ? '' : 'alt'}">${initials(c.name)}</div>
+        <div><b>${esc(c.name)}</b><span class="hint">Your dedicated counsellor</span></div></div>
+      <div class="c-lines">
+        <div><i data-lucide="mail"></i><a href="mailto:${esc(c.email)}">${esc(c.email)}</a></div>
+        <div><i data-lucide="clock"></i>Guiding students since ${fmtDate(c.since)}</div>
+        <div><i data-lucide="activity"></i>Status&nbsp;<span class="pill ${PILL[p.status]}">${STATUS_L[p.status]}</span></div>
+      </div>
+      <div style="margin-top:18px"><button class="btn btn-primary" data-goto="mentor"><i data-lucide="calendar"></i> Book a session</button></div>
+      ${(d.sessionRequests || []).length ? `<p class="hint" style="font-weight:600;text-transform:uppercase;letter-spacing:.12em;font-size:10.5px;margin:20px 0 2px">Your session requests</p>
+        ${d.sessionRequests.slice().reverse().map(r => `<div class="feed-row"><i data-lucide="calendar" style="color:var(--green)"></i>
+          <div class="feed-main"><b>${fmtDate(r.date + 'T00:00:00')}</b><span class="hint">${esc(r.note || 'No note added')}</span></div>
+          <span class="ago">asked ${ago(r.at)}</span></div>`).join('')}` : ''}`
+      : '<p class="hint">A counsellor will be assigned to you shortly.</p>'}
+    </section>
+    <section class="panel">
+      <div class="panel-head"><div><h3>Trending exams this week</h3><p class="hint">Search demand across students</p></div></div>
+      ${EXAMS.map(([n, v, dl]) => `<div class="trend-row ${p.goal && p.goal.startsWith(n.split(' ')[0]) ? 'you' : ''}">
+        <b>${n}</b><div class="bar amber"><i data-w="${v}"></i></div>
+        <span class="tdelta"><i data-lucide="arrow-up-right"></i>${dl}</span></div>`).join('')}
+      <p class="hint" style="margin-top:12px">${p.goal ? `Highlighted because you're aiming for <b>${esc(p.goal)}</b>.` : 'Ranked by weekly search interest.'}</p>
+    </section>
+  </div>
+  <section class="panel">
+    <div class="panel-head"><div><h3>Your profile snapshot</h3><p class="hint">What your counsellor sees</p></div></div>
+    <div class="dl">
+      <div><span>Grade</span><b>${esc(p.grade)}</b></div>
+      <div><span>Stream</span><b>${esc(p.stream)}</b></div>
+      <div><span>School</span><b>${esc(p.school)}</b></div>
+      <div><span>City</span><b>${esc(p.city)}</b></div>
+      <div><span>Phone</span><b>${esc(p.phone)}</b></div>
+      <div><span>Date of birth</span><b>${esc(p.dob)}</b></div>
+      <div><span>Goal</span><b>${esc(p.goal)}</b></div>
+      <div><span>Mode</span><b>${esc(p.mode)}</b></div>
+      <div><span>Found us via</span><b>${esc(p.hear)}</b></div>
+    </div>
+    <div style="margin-top:18px"><span class="hint" style="display:block;margin-bottom:6px">Subjects</span>
+      ${p.subjects.map(s => `<span class="pill st-couns" style="margin-right:6px">${esc(s)}</span>`).join('')}</div>
+  </section>`;
+}
+function mentorHTML() {
+  const d = dash, c = d.counsellor;
+  if (!c) return '<section class="panel"><p class="hint">A counsellor will be assigned to you shortly.</p></section>';
+  return `<section class="panel" style="max-width:560px">
+    <div class="counsellor-card"><div class="fav big ${hash2(c.name) % 2 ? '' : 'alt'}">${initials(c.name)}</div>
+      <div><b>${esc(c.name)}</b><span class="hint">${esc(c.email)} · since ${fmtDate(c.since)}</span></div></div>
+    <h3 style="font:500 20px var(--f-d);margin:8px 0 4px">Book a session</h3>
+    <p class="hint" style="margin-bottom:18px">Pick a preferred date — ${esc(c.name.split(' ')[0])} will confirm your slot.</p>
+    <form id="f-book" novalidate>
+      <div class="field" id="fw-bdate"><label for="b-date">Preferred date</label>
+        <input id="b-date" type="date" min="${todayISO()}" value="${todayISO()}"><p class="err-msg"></p></div>
+      <div class="field"><label for="b-note">What would you like to discuss?</label>
+        <textarea id="b-note" rows="3" placeholder="e.g. Choosing between JEE and BITSAT…"></textarea></div>
+      <button class="btn btn-primary">Request session <i data-lucide="calendar-plus"></i></button>
+    </form>
+    ${(d.sessionRequests || []).length ? `<p class="hint" style="font-weight:600;text-transform:uppercase;letter-spacing:.12em;font-size:10.5px;margin:22px 0 2px">Previous requests</p>
+      ${d.sessionRequests.slice().reverse().map(r => `<div class="feed-row"><i data-lucide="calendar" style="color:var(--green)"></i>
+        <div class="feed-main"><b>${fmtDate(r.date + 'T00:00:00')}</b><span class="hint">${esc(r.note || 'No note added')}</span></div>
+        <span class="ago">${ago(r.at)}</span></div>`).join('')}` : ''}
+  </section>`;
+}
+function trendingHTML(studentMode) {
+  const d = dash, maxSub = Math.max(1, ...d.subjects.map(x => x.count));
+  return `
+  <section class="panel">
+    <div class="panel-head"><div><h3>Exams in demand</h3><p class="hint">Weekly interest index across the platform</p></div></div>
+    ${EXAMS.map(([n, v, dl]) => `<div class="trend-row ${studentMode && d.profile.goal && d.profile.goal.startsWith(n.split(' ')[0]) ? 'you' : ''}">
+      <b>${n}</b><div class="bar amber"><i data-w="${v}"></i></div>
+      <span class="tdelta"><i data-lucide="arrow-up-right"></i>${dl}</span></div>`).join('')}
+  </section>
+  <section class="panel">
+    <div class="panel-head"><div><h3>Rising subjects at CampusPulse</h3><p class="hint">Live counts from student registrations</p></div></div>
+    <div class="subj-grid">${d.subjects.map(x => `<div class="trend-row"><b>${esc(x.name)}</b>
+      <div class="bar"><i data-w="${Math.round(x.count / maxSub * 100)}"></i></div>
+      <span class="tcount">${x.count} students</span></div>`).join('')}</div>
+  </section>`;
+}
+function wireStudent(sec) {
+  document.querySelectorAll('[data-goto]').forEach(b => b.addEventListener('click', () => goto('#/' + b.dataset.goto)));
+  const f = $('#f-book');
+  if (f) f.addEventListener('submit', async e => {
+    e.preventDefault();
+    const date = $('#b-date').value;
+    $('#fw-bdate').classList.toggle('err', !date);
+    if (!date) return;
+    try {
+      await api('/api/sessions', { method: 'POST', body: { date, note: $('#b-note').value } });
+      toast(`Session requested for ${fmtDate(date + 'T00:00:00')}`);
+      dash = await api('/api/dashboard'); renderSection('mentor');
+    } catch (d) { toast(d.error || 'Could not book', 'alert-triangle'); }
+  });
+}
+
+/* ── router ─────────────────────────────────────────────── */
+async function route() {
+  const h = location.hash || '#/login';
+  if (h.startsWith('#/magic-failed')) {
+    renderLogin();
+    toast('That sign-in link is invalid or has expired.', 'alert-triangle');
+    history.replaceState(null, '', '#/login');
+    return;
+  }
+  if (h.startsWith('#/register')) { clearInterval(window._tick); return renderRegister(); }
+  if (!me) { try { me = (await api('/api/me')).user; } catch { me = null; } }
+  if (me && !ws) connectWS();
+  if (!me) { clearInterval(window._tick); return renderLogin(); }
+  if (h.startsWith('#/students'))    return renderDash('students');
+  if (h.startsWith('#/counsellors')) return renderDash('counsellors');
+  if (h.startsWith('#/mentor'))      return renderDash('mentor');
+  if (h.startsWith('#/trending'))    return renderDash('trending');
+  if (h.startsWith('#/dashboard') || h === '#/' || h === '') return renderDash('overview');
+  goto('#/dashboard');
+}
+window.addEventListener('hashchange', route);
+route();
+</script>
+</body>
+</html>
