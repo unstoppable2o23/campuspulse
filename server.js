@@ -238,10 +238,16 @@ function body(req) {
 function validateReg(b) {
   const bad = (msg, field) => ({ error: msg, field });
   const s = v => String(v || '').trim();
+  const digits = (String(b.phone).match(/\d/g) || []).length;
+  const dob = new Date(s(b.dob) + 'T00:00:00');
+  const now = new Date();
+  let age = isNaN(dob) ? null : now.getFullYear() - dob.getFullYear();
+  if (age !== null && (now.getMonth() < dob.getMonth() || (now.getMonth() === dob.getMonth() && now.getDate() < dob.getDate()))) age--;
   return (!s(b.name) || s(b.name).length < 3) ? bad('Please enter your full name.', 'name')
     : !/^\S+@\S+\.\S+$/.test(s(b.email)) ? bad('Enter a valid email address.', 'email')
-    : !/^[+()\-\s\d]{10,16}$/.test(s(b.phone)) ? bad('Enter a valid phone number.', 'phone')
+    : !/^[+()\-\s\d]{10,16}$/.test(s(b.phone)) || digits < 10 || digits > 15 ? bad('Enter a valid phone number (10–15 digits).', 'phone')
     : !b.dob ? bad('Pick your date of birth.', 'dob')
+    : age === null || age < 10 || age > 35 ? bad('Students must be 10–35 years old.', 'dob')
     : !b.gender ? bad('Select an option.', 'gender')
     : String(b.password || '').length < 6 ? bad('Password needs at least 6 characters.', 'password')
     : b.password !== b.confirm ? bad('Passwords do not match.', 'confirm')
@@ -448,8 +454,13 @@ async function api(req, res, p) {
     await sb.from('status_history').insert({ student_id: u.id, from_status: null, to_status: 'new', changed_by: null });
     broadcast('pulse', { name: u.name.split(' ')[0], city: u.profile.city, at: u.createdAt });
     broadcast('staff', { reason: 'student:new', name: u.name, counsellor: cid ? 'their counsellor' : 'Unassigned' }, ['admin', 'counsellor'], cid ? [cid] : null);
+    let counsellorName = null;
+    if (cid) {
+      const { data: crow } = await sb.from('users').select('name').eq('id', cid).maybeSingle();
+      counsellorName = crow ? crow.name : null;
+    }
     setCookie(res, await createSession(u.id));
-    return send(200, { user: sanitize(u) });
+    return send(200, { user: sanitize(u), counsellorName });
   }
 
   if (req.method === 'POST' && p === '/api/login') {

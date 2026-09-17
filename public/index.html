@@ -612,6 +612,24 @@ const Fld = (id, label, type, ph, extra = '') =>
   `<div class="field" id="fw-${id}"><label for="r-${id}">${label}</label><input id="r-${id}" type="${type}" placeholder="${ph}" ${extra}><p class="err-msg"></p></div>`;
 const Sel = (id, label, opts, ph) =>
   `<div class="field" id="fw-${id}"><label for="r-${id}">${label}</label><select id="r-${id}"><option value="">${ph}</option>${opts.map(o => `<option>${o}</option>`).join('')}</select><p class="err-msg"></p></div>`;
+const PassFld = (id, label, ph) =>
+  `<div class="field" id="fw-${id}"><label for="r-${id}">${label}</label>
+    <div class="pass-wrap"><input id="r-${id}" type="password" placeholder="${ph}" autocomplete="new-password">
+    <button type="button" class="peek" data-target="r-${id}"><i data-lucide="eye"></i></button></div><p class="err-msg"></p></div>`;
+const STREAM_SUBJ = {
+  'Science': ['Physics','Chemistry','Mathematics','Biology','Computer Science'],
+  'Commerce': ['Accountancy','Business Studies','Economics','Mathematics','English'],
+  'Arts / Humanities': ['History','Political Science','Psychology','English','Economics'],
+};
+const MIN_AGE = 10, MAX_AGE = 35;
+const ageOf = iso => {
+  const d = new Date(iso + 'T00:00:00'); if (isNaN(d)) return null;
+  const now = new Date();
+  let a = now.getFullYear() - d.getFullYear();
+  if (now.getMonth() < d.getMonth() || (now.getMonth() === d.getMonth() && now.getDate() < d.getDate())) a--;
+  return a;
+};
+const phoneDigits = v => (String(v).match(/\d/g) || []).length;
 
 let regStep = 1;
 const reg = { subjects: [], mode: '' };
@@ -637,8 +655,8 @@ function renderRegister() {
           </div>
           ${Sel('gender', 'Gender', ['Male', 'Female', 'Other', 'Prefer not to say'], 'Select…')}
           <div class="frow">
-            ${Fld('pass', 'Password', 'password', '6+ characters')}
-            ${Fld('confirm', 'Confirm password', 'password', 'Repeat password')}
+            ${PassFld('pass', 'Password', '6+ characters')}
+            ${PassFld('confirm', 'Confirm password', 'Repeat password')}
           </div>
         </div>
         <div class="pane" data-p="2" hidden>
@@ -659,7 +677,7 @@ function renderRegister() {
             <p class="err-msg"></p></div>
           ${Sel('hear', 'How did you hear about us?', HEARD, 'Select…')}
           <label class="check" id="fw-consent"><input type="checkbox" id="r-consent">
-            <span>I agree to be contacted by my assigned counsellor and accept the platform terms.</span></label>
+            <span>I agree to be contacted by my assigned counsellor and accept the platform terms.<span class="err-msg" style="display:block"></span></span></label>
         </div>
         <p id="reg-err" class="form-error" hidden></p>
         <div class="wiz-nav">
@@ -669,6 +687,22 @@ function renderRegister() {
       </form>
     </div></main></div>`;
   icons(); clearInterval(window._tick); regStep = 1; reg.subjects = []; reg.mode = '';
+
+  const paintSubjChips = () => {
+    const stream = ($('#r-stream') || {}).value || '';
+    const list = STREAM_SUBJ[stream] || SUBJ;
+    reg.subjects = reg.subjects.filter(s => list.includes(s));
+    $('#subj-chips').innerHTML = list.map(s =>
+      `<button type="button" class="chip${reg.subjects.includes(s) ? ' on' : ''}" data-v="${s}">${s}</button>`).join('');
+    $('#fw-subjects').querySelector('label').textContent =
+      stream ? `Subjects you're pursuing (${stream})` : `Subjects you're pursuing (pick a stream to narrow this down)`;
+  };
+  document.querySelectorAll('.peek').forEach(b => b.addEventListener('click', () => {
+    const i = document.getElementById(b.dataset.target);
+    i.type = i.type === 'password' ? 'text' : 'password';
+    b.innerHTML = `<i data-lucide="${i.type === 'password' ? 'eye' : 'eye-off'}"></i>`; icons();
+  }));
+  $('#r-stream').addEventListener('change', paintSubjChips);
 
   $('#subj-chips').addEventListener('click', e => {
     const c = e.target.closest('.chip'); if (!c) return;
@@ -684,20 +718,59 @@ function renderRegister() {
   $('#wiz-next').addEventListener('click', async () => {
     if (regStep < 3) { if (vStep(regStep)) { regStep++; showPane(); } return; }
     if (!vStep(3)) return;
-    const g = id => ($('#r-' + id) || {}).value || '';
-    try {
-      const { user } = await api('/api/register', { method: 'POST', body: {
-        name: g('name'), email: g('email'), phone: g('phone'), dob: g('dob'), gender: g('gender'),
-        password: $('#r-pass').value, confirm: g('confirm'), grade: g('grade'), stream: g('stream'),
-        school: g('school'), city: g('city'), subjects: reg.subjects, goal: g('goal'),
-        mode: reg.mode, hear: g('hear'), consent: $('#r-consent').checked } });
-      me = user; dash = null;
-      toast(`Welcome aboard, ${user.name.split(' ')[0]}!`);
-      goto('#/dashboard');
-    } catch (d) { regFail(d.field, d.error); }
+    openReview();
   });
 
   showPane();
+}
+function regSummary() {
+  const g = id => ($('#r-' + id) || {}).value || '';
+  return [
+    ['Full name', g('name')], ['Email', g('email')], ['Phone', g('phone')],
+    ['Date of birth', g('dob')], ['Gender', g('gender')],
+    ['Grade', g('grade')], ['Stream', g('stream')], ['School / College', g('school')],
+    ['City', g('city')], ['Subjects', reg.subjects.join(', ')],
+    ['Primary goal', g('goal')], ['Counselling mode', reg.mode], ['Heard via', g('hear')],
+  ];
+}
+function openReview() {
+  openModal(`<button class="modal-x" id="mx"><i data-lucide="x"></i></button>
+    <h3>Review your details</h3><p class="hint">One last look before your counsellor is assigned.</p>
+    <div class="c-lines">${regSummary().map(([k, v]) => `<div><span class="hint" style="min-width:130px">${k}</span><b>${esc(v || '—')}</b></div>`).join('')}</div>
+    <p id="rev-err" class="form-error" hidden></p>
+    <div class="wiz-nav" style="margin-top:18px">
+      <button class="btn btn-ghost" id="rev-back">Back</button>
+      <button class="btn btn-primary" id="rev-go">Confirm &amp; create account <i data-lucide="user-plus"></i></button>
+    </div>`);
+  icons();
+  $('#mx').addEventListener('click', closeModal);
+  $('#rev-back').addEventListener('click', closeModal);
+  $('#rev-go').addEventListener('click', doRegister);
+}
+async function doRegister() {
+  const g = id => ($('#r-' + id) || {}).value || '';
+  const go = $('#rev-go'), err = $('#rev-err');
+  go.disabled = true; go.style.opacity = .6;
+  try {
+    const { user, counsellorName } = await api('/api/register', { method: 'POST', body: {
+      name: g('name'), email: g('email'), phone: g('phone'), dob: g('dob'), gender: g('gender'),
+      password: $('#r-pass').value, confirm: $('#r-confirm').value, grade: g('grade'), stream: g('stream'),
+      school: g('school'), city: g('city'), subjects: reg.subjects, goal: g('goal'),
+      mode: reg.mode, hear: g('hear'), consent: $('#r-consent').checked } });
+    me = user; dash = null;
+    openModal(`<div style="text-align:center;padding:8px 0 4px">
+      <div class="fav big" style="margin:0 auto 14px">${initials(user.name)}</div>
+      <h3>Welcome aboard, ${esc(user.name.split(' ')[0])}!</h3>
+      <p class="hint" style="margin:8px 0 20px">${counsellorName
+        ? `Your counsellor <b>${esc(counsellorName)}</b> is already assigned — say hello in Messages.`
+        : 'Your counsellor will be assigned shortly.'}</p>
+      <button class="btn btn-primary btn-wide" id="wel-go">Go to my dashboard <i data-lucide="arrow-right"></i></button></div>`);
+    icons();
+    $('#wel-go').addEventListener('click', () => { closeModal(); goto('#/dashboard'); });
+  } catch (d) {
+    closeModal();
+    regFail(d.field, d.error);
+  } finally { go.disabled = false; go.style.opacity = 1; }
 }
 function paneErr(id, msg) {
   const w = $('#fw-' + id); if (!w) return;
@@ -725,8 +798,11 @@ function vStep(n) {
   if (n === 1) {
     if (g('name').length < 3)                        { paneErr('name', 'Please enter your full name.'); ok = false; }
     else if (!/^\S+@\S+\.\S+$/.test(g('email')))     { paneErr('email', 'Enter a valid email address.'); ok = false; }
-    else if (!/^[+()\-\s\d]{10,16}$/.test(g('phone'))){ paneErr('phone', 'Enter a valid phone number.'); ok = false; }
+    else if (!/^[+()\-\s\d]{10,16}$/.test(g('phone')) || phoneDigits(g('phone')) < 10 || phoneDigits(g('phone')) > 15)
+                                                     { paneErr('phone', 'Enter a valid phone number (10–15 digits).'); ok = false; }
     else if (!g('dob'))                              { paneErr('dob', 'Pick your date of birth.'); ok = false; }
+    else if (ageOf(g('dob')) === null || ageOf(g('dob')) < MIN_AGE || ageOf(g('dob')) > MAX_AGE)
+                                                     { paneErr('dob', `Students must be ${MIN_AGE}–${MAX_AGE} years old.`); ok = false; }
     else if (!g('gender'))                           { paneErr('gender', 'Select an option.'); ok = false; }
     else if ($('#r-pass').value.length < 6)          { paneErr('pass', 'At least 6 characters.'); ok = false; }
     else if ($('#r-pass').value !== $('#r-confirm').value) { paneErr('confirm', 'Passwords do not match.'); ok = false; }
@@ -740,7 +816,7 @@ function vStep(n) {
     if (!g('goal'))   { paneErr('goal', 'Choose your primary goal.'); ok = false; }
     else if (!reg.mode) { paneErr('mode', 'Choose a counselling mode.'); ok = false; }
     else if (!g('hear')) { paneErr('hear', 'Tell us how you found us.'); ok = false; }
-    else if (!$('#r-consent').checked) { $('#fw-consent').classList.add('err'); ok = false; }
+    else if (!$('#r-consent').checked) { paneErr('consent', 'Please accept the consent to continue.'); ok = false; }
   }
   return ok;
 }
