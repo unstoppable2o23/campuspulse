@@ -13,3 +13,5 @@ services:
         sync: false
       - key: SITE_URL
         sync: false
+      - key: WEB_ORIGINS
+        sync: false

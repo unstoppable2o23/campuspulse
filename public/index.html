@@ -329,10 +329,17 @@ const icons = () => window.lucide && lucide.createIcons();
 
 let me = null, dash = null, currentSection = 'overview';
 
+/* ── split deployment: SPA may be served from Vercel while the API lives on Render.
+   Same-origin (Render / localhost dev) → relative paths. Anywhere else → absolute backend. */
+const BACKEND_URL = 'https://campuspulse-c32o.onrender.com';
+const API_BASE = window.CP_API_BASE
+  || (location.origin === BACKEND_URL || location.hostname === 'localhost' || location.hostname === '127.0.0.1' ? '' : BACKEND_URL);
+
 async function api(path, opts = {}) {
-  const r = await fetch(path, {
+  const r = await fetch(API_BASE + path, {
     method: opts.method || 'GET',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });
   const d = await r.json().catch(() => ({}));
@@ -425,7 +432,7 @@ function startTicker() {                     // polling fallback (auth pages)
 let ws = null, refreshTimer = null;
 function connectWS() {
   if (ws) return;
-  try { ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws'); }
+  try { ws = new WebSocket(API_BASE ? API_BASE.replace(/^http/, 'ws') + '/ws' : (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws'); }
   catch { return; }
   ws.onmessage = e => {
     let m; try { m = JSON.parse(e.data); } catch { return; }
@@ -885,7 +892,7 @@ function studentsHTML() {
     <div class="tbl-tools"><b>${dash.students.length} student${dash.students.length === 1 ? '' : 's'}</b>
       <div style="display:flex;align-items:center;gap:14px">
         <span class="hint">Click a row for status history · change status from the dropdown</span>
-        <a class="btn btn-ghost" style="padding:8px 14px" href="/api/export/students" download><i data-lucide="download"></i>Export CSV</a>
+        <a class="btn btn-ghost" style="padding:8px 14px" href="${API_BASE}/api/export/students" download><i data-lucide="download"></i>Export CSV</a>
       </div></div>
     <table><thead><tr><th>Student</th><th>Grade</th><th>Stream</th><th>City</th>${isAdm ? '<th>Counsellor</th>' : ''}<th>Status</th><th>Registered</th></tr></thead>
     <tbody id="st-body">${dash.students.map(studentRow).join('')}</tbody></table>

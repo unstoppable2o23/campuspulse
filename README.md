@@ -55,19 +55,22 @@ First boot against an empty DB auto-seeds demo data. Open `http://localhost:3000
 | Counsellor | `rahul@campuspulse.edu` | `Counsel@123` |
 | Student | `aarav@student.campuspulse.edu` | `Student@123` or magic link |
 
-## Deploy (Render)
+## Deploy (Vercel frontend + Render backend)
 
-`render.yaml` is already in the repo — Render picks it up automatically.
+The SPA (`public/index.html`) talks to the API via `API_BASE`: same-origin on Render/localhost, absolute backend URL anywhere else (hash routing, so no rewrites needed).
 
-1. dashboard.render.com → New → Web Service → connect `campuspulse`.
-2. Build command `npm install`, start command `node server.js`.
-3. Environment variables:
-   - `SUPABASE_URL` → `https://<ref>.supabase.co`
-   - `SUPABASE_SERVICE_ROLE_KEY` → your `sb_secret_...` (never commit this)
-   - `SITE_URL` → `https://<your-app>.onrender.com`
-4. Deploy, then back in Supabase → Auth → URL Configuration → add `https://<your-app>.onrender.com/auth/callback`.
+**Backend (already live):** `https://campuspulse-c32o.onrender.com` via `render.yaml`.
+Env: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SITE_URL` (= backend URL), optional `WEB_ORIGINS` (comma-separated extra SPA origins — `*.vercel.app` is allowed automatically). Cookies switch to `SameSite=None; Secure` automatically when `SITE_URL` is HTTPS.
 
-Health check path: `/`. WebSockets run on the same port at `/ws` — no extra config needed.
+**Frontend (Vercel):**
+1. vercel.com → Add New → Project → import `unstoppable2o23/campuspulse`.
+2. Root Directory: `public`. Framework Preset: Other. No build command, no env vars.
+3. Deploy → you get `https://<your-app>.vercel.app` (login/register/dashboard hit the Render API + `wss://…/ws`).
+4. Supabase → Auth → URL Configuration → also add `https://<your-app>.vercel.app/auth/callback` (magic-link `redirectTo` stays the backend `/auth/callback`, which sets the cookie then lands back on the SPA).
+
+## Deploy (all-in-one Render alternative)
+
+Same repo works full-stack on Render alone (SPA served by `server.js`): skip Vercel, open the backend URL directly.
 
 ## Project structure
 

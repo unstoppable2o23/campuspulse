@@ -158,8 +158,31 @@ async function ensureSeed() {
 
 /* ── sessions + auth ──────────────────────────────────────── */
 const getCookie = (req, k) => { const m = (req.headers.cookie || '').match(new RegExp('(?:^|;\\s*)' + k + '=([^;]*)')); return m ? decodeURIComponent(m[1]) : null; };
-const setCookie = (res, t) => res.setHeader('Set-Cookie', `cp_sid=${t}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${7 * 86400}`);
+/* cross-site cookies when the SPA lives elsewhere (Vercel) — SameSite=None requires Secure (HTTPS) */
+const COOKIE_ATTRS = SITE_URL.startsWith('https://') ? 'SameSite=None; Secure' : 'SameSite=Lax';
+const setCookie = (res, t) => res.setHeader('Set-Cookie', `cp_sid=${t}; Path=/; HttpOnly; ${COOKIE_ATTRS}; Max-Age=${7 * 86400}`);
+const clearCookie = res => res.setHeader('Set-Cookie', `cp_sid=; Max-Age=0; Path=/; HttpOnly; ${COOKIE_ATTRS}`);
 const redirect  = (res, to) => { res.writeHead(302, { Location: to }); res.end(); };
+
+/* ── CORS for the split deployment (SPA on Vercel, API here) ──
+   Allows SITE_URL, extra origins in WEB_ORIGINS (comma-separated), and any *.vercel.app preview. */
+function cors(req, res) {
+  const origin = req.headers.origin;
+  const extra = (process.env.WEB_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
+  if (origin && (origin === SITE_URL || origin.endsWith('.vercel.app') || extra.includes(origin))) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
+  if (req.method === 'OPTIONS' && req.headers['access-control-request-method']) {
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Max-Age', '86400');
+    res.writeHead(204); res.end();
+    return true;
+  }
+  return false;
+}
 
 async function createSession(userId) {
   const t = crypto.randomBytes(24).toString('hex');
@@ -421,7 +444,7 @@ async function api(req, res, p) {
   if (req.method === 'POST' && p === '/api/logout') {
     const token = getCookie(req, 'cp_sid');
     if (token) await sb.from('sessions').delete().eq('token', token);
-    res.setHeader('Set-Cookie', 'cp_sid=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax');
+    clearCookie(res);
     return send(200, { ok: true });
   }
 
@@ -530,6 +553,7 @@ function staticFile(res, p) {
 }
 
 const server = http.createServer(async (req, res) => {
+  if (cors(req, res)) return;
   const u = new URL(req.url, 'http://x');
   const p = u.pathname;
   try {
