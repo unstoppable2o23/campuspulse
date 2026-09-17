@@ -58,5 +58,25 @@ create table if not exists public.messages (
 );
 create index if not exists messages_student_idx on public.messages (student_id, created_at);
 
+-- Phase 3: counsellor availability slots + booking lifecycle
+create table if not exists public.slots (
+  id bigint generated always as identity primary key,
+  counsellor_id bigint not null references public.users (id) on delete cascade,
+  weekday smallint not null check (weekday between 0 and 6),
+  start_time text not null check (start_time ~ '^[0-2][0-9]:[0-5][0-9]$'),
+  minutes smallint not null default 30 check (minutes between 15 and 120),
+  created_at timestamptz not null default now(),
+  unique (counsellor_id, weekday, start_time)
+);
+create index if not exists slots_counsellor_idx on public.slots (counsellor_id);
+
+alter table public.session_requests
+  add column if not exists status text not null default 'pending'
+    check (status in ('pending','confirmed','declined','completed','cancelled')),
+  add column if not exists slot_id bigint references public.slots (id) on delete set null,
+  add column if not exists decided_by bigint references public.users (id) on delete set null,
+  add column if not exists decided_at timestamptz;
+create index if not exists session_requests_status_idx on public.session_requests (status, requested_date);
+
 -- NOTE: this project uses the SERVICE_ROLE key from Node, so no RLS policies are required.
 -- If you enable RLS, add permissive policies for the service role or disable RLS on these tables.

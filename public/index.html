@@ -218,6 +218,7 @@ svg.lucide{width:18px;height:18px;flex:none}
 .st-contacted{background:var(--paper-2);color:#57503B;border-color:var(--line-2)}
 .st-couns{background:#D8E6DC;color:var(--green);border-color:#B2CCBB}
 .st-enr{background:var(--green);color:var(--cream);border-color:var(--green)}
+.st-bad{background:var(--terra-soft);color:var(--terra);border-color:#E3B7A6}
 .trend-row{display:grid;grid-template-columns:110px 1fr 62px;gap:14px;align-items:center}
 .trend-row .bar{margin:0}
 .trend-row b{font-weight:600;font-size:14px}
@@ -415,6 +416,17 @@ const todayISO = () => new Date().toISOString().slice(0, 10);
 
 const STATUS_L = { new: 'New', contacted: 'Contacted', counselling: 'In counselling', enrolled: 'Enrolled' };
 const PILL = { new: 'st-new', contacted: 'st-contacted', counselling: 'st-couns', enrolled: 'st-enr' };
+const SES_L = { pending: 'Pending', confirmed: 'Confirmed', declined: 'Declined', completed: 'Completed', cancelled: 'Cancelled' };
+const SES_PILL = { pending: 'st-new', confirmed: 'st-couns', declined: 'st-bad', completed: 'st-enr', cancelled: 'st-contacted' };
+const WD_L = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+function slotOccurrences(slot, n = 4) {
+  const out = [], d = new Date();
+  for (let i = 0; out.length < n && i < 60; i++) {
+    const t = new Date(d.getFullYear(), d.getMonth(), d.getDate() + i);
+    if (t.getDay() === slot.weekday) out.push(t.toISOString().slice(0, 10));
+  }
+  return out;
+}
 const EXAMS = [['JEE Main',92,'+12%'],['NEET-UG',85,'+9%'],['CUET-UG',74,'+18%'],['IELTS',66,'+14%'],['CAT',58,'+6%'],['GATE',47,'+4%']];
 
 function toast(msg, icon = 'check-circle-2') {
@@ -493,6 +505,7 @@ function connectWS() {
     if (m.type === 'pulse') liveTick(m.payload);
     if (m.type === 'staff') staffEvent(m.payload);
     if (m.type === 'chat') chatEvent(m.payload);
+    if (m.type === 'session') sessionEvent(m.payload);
   };
   ws.onclose = () => { ws = null; if (me) setTimeout(connectWS, 2500); };
 }
@@ -501,6 +514,7 @@ function staffEvent(p) {
   if (p.reason === 'student:new')     toast(`New registration: ${p.name} → ${p.counsellor}`, 'user-plus');
   if (p.reason === 'status')          toast(`${p.name} → ${STATUS_L[p.status]}`, 'refresh-cw');
   if (p.reason === 'session:new')     toast(`${p.name} requested a session (${p.date})`, 'calendar-plus');
+  if (p.reason === 'session:update')  toast(`${p.name}'s session on ${p.date} → ${SES_L[p.status] || p.status}`, 'calendar');
   if (p.reason === 'counsellor:new')  toast(`Counsellor ${p.name} joined the team`, 'user-plus');
   queueRefresh();
 }
@@ -840,11 +854,11 @@ function showPane() {
 
 /* ── dashboard shell ────────────────────────────────────── */
 const NAV = {
-  admin:      [['overview','Overview','layout-dashboard'], ['counsellors','Counsellors','users'], ['students','Students','graduation-cap']],
-  counsellor: [['overview','Overview','layout-dashboard'], ['students','My Students','graduation-cap']],
+  admin:      [['overview','Overview','layout-dashboard'], ['sessions','Sessions','calendar-days'], ['counsellors','Counsellors','users'], ['students','Students','graduation-cap']],
+  counsellor: [['overview','Overview','layout-dashboard'], ['sessions','Sessions','calendar-days'], ['students','My Students','graduation-cap']],
   student:    [['overview','Overview','layout-dashboard'], ['mentor','My Counsellor','user-check'], ['trending','Trending','flame']],
 };
-const TITLES = { overview: 'Overview', students: 'Students', counsellors: 'Counsellors', mentor: 'My Counsellor', trending: 'Trending Now' };
+const TITLES = { overview: 'Overview', sessions: 'Sessions', students: 'Students', counsellors: 'Counsellors', mentor: 'My Counsellor', trending: 'Trending Now' };
 const ROLE_L = { admin: 'Superadmin', counsellor: 'Counsellor', student: 'Student' };
 
 const bootSplashHTML = () => `<div class="boot"><div class="boot-mark">${logoMark(44)}</div><div class="boot-bar"><i></i></div><p id="boot-note">Loading your workspace…</p></div>`;
@@ -898,6 +912,9 @@ function renderSection(sec) {
   } else if (sec === 'students') {
     c.innerHTML = studentsHTML();
     wireStudentsTable();
+  } else if (sec === 'sessions') {
+    c.innerHTML = sessionsHTML();
+    wireSessions();
   } else if (sec === 'counsellors') {
     c.innerHTML = counsellorsHTML();
     wireCounsellors();
@@ -1139,6 +1156,20 @@ function chatEvent(p) {
   if (me.role === 'student' && p.student === me.id) paintThread('#mentor-log', me.id);
   refreshUnread();
 }
+function sessionEvent(p) {
+  if (!me || me.role !== 'student') return;
+  flashLive();
+  toast(`Your session on ${fmtDate(p.date + 'T00:00:00')} → ${SES_L[p.status] || p.status}`, 'calendar');
+  if (['mentor', 'overview'].includes(currentSection)) queueStudentRefresh();
+}
+let studentRefreshTimer = null;
+function queueStudentRefresh() {
+  if (refreshBlocked()) { clearTimeout(studentRefreshTimer); studentRefreshTimer = setTimeout(queueStudentRefresh, 1600); return; }
+  clearTimeout(studentRefreshTimer);
+  studentRefreshTimer = setTimeout(async () => {
+    try { dash = await api('/api/dashboard'); renderSection(currentSection); } catch {}
+  }, 800);
+}
 async function refreshUnread() {
   let counts = {};
   try { ({ counts } = await api('/api/unread')); } catch { return; }
@@ -1149,6 +1180,97 @@ async function refreshUnread() {
   document.querySelectorAll('[data-ubadge]').forEach(el => {
     const n = counts[el.dataset.ubadge] || 0;
     el.hidden = !n; el.textContent = n > 9 ? '9+' : n;
+  });
+}
+
+/* ── sessions (staff) ─────────────────────────────────── */
+function sessionsHTML() {
+  const isCon = me.role === 'counsellor';
+  return `
+  <section class="panel">
+    <div class="panel-head"><div><h3>Pending requests</h3><p class="hint">Confirm or decline — students are notified live</p></div></div>
+    <div id="ses-pending"><p class="hint">Loading…</p></div>
+  </section>
+  <section class="panel">
+    <div class="panel-head"><div><h3>Upcoming confirmed</h3><p class="hint">Complete after the session, or cancel if plans change</p></div></div>
+    <div id="ses-upcoming"><p class="hint">Loading…</p></div>
+  </section>
+  <section class="panel">
+    <div class="panel-head"><div><h3>${isCon ? 'My weekly slots' : 'All weekly slots'}</h3>
+      <p class="hint">${isCon ? 'Students book into these — no double-booking, ever' : 'Availability set by each counsellor'}</p></div></div>
+    ${isCon ? `<form class="frow" id="slot-form" style="grid-template-columns:1fr 1fr 1fr auto;align-items:end;margin-bottom:14px">
+      <div class="field" style="margin:0"><label>Weekday</label><select id="sl-wd">${WD_L.map((w, i) => `<option value="${i}">${w}</option>`).join('')}</select></div>
+      <div class="field" style="margin:0"><label>Start</label><input id="sl-start" type="time" value="10:00"></div>
+      <div class="field" style="margin:0"><label>Minutes</label><select id="sl-min"><option>30</option><option>45</option><option>60</option></select></div>
+      <button class="btn btn-primary" style="padding:10px 18px">Add</button></form>
+      <p class="err-msg" id="slot-err"></p>` : ''}
+    <div id="slot-list"><p class="hint">Loading…</p></div>
+  </section>`;
+}
+function sesRow(r, actions) {
+  return `<div class="feed-row">
+    <div class="fav ${hash2(r.student) % 2 ? 'alt' : ''}">${initials(r.student)}</div>
+    <div class="feed-main"><b>${esc(r.student)} <span class="hint">· ${esc(r.counsellor)}</span></b>
+      <span class="hint">${fmtDate(r.date + 'T00:00:00')}${r.slot ? ` · ${r.slot.start_time} (${r.slot.minutes}m)` : ''}${r.note ? ` · ${esc(r.note)}` : ''}</span></div>
+    <div class="feed-side"><span class="pill ${SES_PILL[r.status]}">${SES_L[r.status]}</span>
+      ${actions ? `<span style="display:flex;gap:6px">${actions}</span>` : ''}</div></div>`;
+}
+const sesBtn = (id, st, label) => `<button class="btn btn-ghost" style="padding:5px 12px;font-size:12.5px" data-ses-act="${st}" data-sid="${id}">${label}</button>`;
+async function loadSessions() {
+  const pen = $('#ses-pending'), up = $('#ses-upcoming');
+  try {
+    const { items } = await api('/api/sessions');
+    const pending = items.filter(r => r.status === 'pending');
+    const upcoming = items.filter(r => r.status === 'confirmed');
+    pen.innerHTML = pending.length ? pending.map(r => sesRow(r, sesBtn(r.id, 'confirmed', 'Confirm') + sesBtn(r.id, 'declined', 'Decline'))).join('')
+      : '<p class="hint">Nothing waiting — new bookings land here instantly.</p>';
+    up.innerHTML = upcoming.length ? upcoming.map(r => sesRow(r, sesBtn(r.id, 'completed', 'Complete') + sesBtn(r.id, 'cancelled', 'Cancel'))).join('')
+      : '<p class="hint">No confirmed sessions coming up.</p>';
+  } catch { if (pen) pen.innerHTML = '<p class="hint">Could not load sessions.</p>'; }
+}
+async function loadSlots() {
+  const box = $('#slot-list'); if (!box) return;
+  const isCon = me.role === 'counsellor';
+  try {
+    const { items } = await api('/api/slots');
+    box.innerHTML = items.length ? items.map(s => `<div class="feed-row">
+      <i data-lucide="clock" style="color:var(--green)"></i>
+      <div class="feed-main"><b>${WD_L[s.weekday]} · ${s.start} <span class="hint">(${s.minutes}m)</span></b>
+      ${!isCon ? `<span class="hint">${esc(s.counsellor || '')}</span>` : ''}</div>
+      ${isCon ? `<button class="chat-btn" data-slot-del="${s.id}" title="Remove slot"><i data-lucide="trash-2"></i></button>` : ''}</div>`).join('')
+      : '<p class="hint">No slots yet — add your first weekly slot above.</p>';
+  } catch { box.innerHTML = '<p class="hint">Could not load slots.</p>'; }
+  icons();
+}
+function wireSessions() {
+  loadSessions(); loadSlots();
+  if (wireSessions.bound) return;           // #app persists across renders — bind once
+  wireSessions.bound = true;
+  $('#app').addEventListener('click', async e => {
+    const act = e.target.closest('[data-ses-act]');
+    if (act) {
+      try {
+        await api(`/api/sessions/${act.dataset.sid}`, { method: 'PATCH', body: { status: act.dataset.sesAct } });
+        toast(`Session ${SES_L[act.dataset.sesAct].toLowerCase()}`);
+        loadSessions();
+      } catch (d) { toast(d.error || 'Could not update', 'alert-triangle'); }
+      return;
+    }
+    const del = e.target.closest('[data-slot-del]');
+    if (del) {
+      try { await api(`/api/slots/${del.dataset.slotDel}`, { method: 'DELETE' }); toast('Slot removed'); loadSlots(); }
+      catch (d) { toast(d.error || 'Could not remove', 'alert-triangle'); }
+    }
+  });
+  const f = $('#slot-form');
+  if (f) f.addEventListener('submit', async e => {
+    e.preventDefault();
+    try {
+      await api('/api/slots', { method: 'POST', body: {
+        weekday: +$('#sl-wd').value, start: $('#sl-start').value, minutes: +$('#sl-min').value } });
+      toast('Slot added');
+      loadSlots();
+    } catch (d) { $('#slot-err').textContent = d.error || 'Could not add slot.'; }
   });
 }
 
@@ -1238,8 +1360,8 @@ function studentOverviewHTML() {
       <div style="margin-top:18px"><button class="btn btn-primary" data-goto="mentor"><i data-lucide="calendar"></i> Book a session</button></div>
       ${(d.sessionRequests || []).length ? `<p class="hint" style="font-weight:600;text-transform:uppercase;letter-spacing:.12em;font-size:10.5px;margin:20px 0 2px">Your session requests</p>
         ${d.sessionRequests.slice().reverse().map(r => `<div class="feed-row"><i data-lucide="calendar" style="color:var(--green)"></i>
-          <div class="feed-main"><b>${fmtDate(r.date + 'T00:00:00')}</b><span class="hint">${esc(r.note || 'No note added')}</span></div>
-          <span class="ago">asked ${ago(r.at)}</span></div>`).join('')}` : ''}`
+          <div class="feed-main"><b>${fmtDate(r.date + 'T00:00:00')}${r.slot ? ` · ${r.slot.start_time}` : ''}</b><span class="hint">${esc(r.note || 'No note added')}</span></div>
+          <div class="feed-side"><span class="pill ${SES_PILL[r.status] || 'st-contacted'}">${SES_L[r.status] || r.status}</span><span class="ago">asked ${ago(r.at)}</span></div></div>`).join('')}` : ''}`
       : '<p class="hint">A counsellor will be assigned to you shortly.</p>'}
     </section>
     <section class="panel">
@@ -1278,14 +1400,17 @@ function mentorHTML() {
     <form id="f-book" novalidate>
       <div class="field" id="fw-bdate"><label for="b-date">Preferred date</label>
         <input id="b-date" type="date" min="${todayISO()}" value="${todayISO()}"><p class="err-msg"></p></div>
+      <div class="field" id="fw-bslot"><label for="b-slot">Counsellor slot (optional)</label>
+        <select id="b-slot"><option value="">Any date — counsellor confirms manually</option></select><p class="err-msg"></p></div>
       <div class="field"><label for="b-note">What would you like to discuss?</label>
         <textarea id="b-note" rows="3" placeholder="e.g. Choosing between JEE and BITSAT…"></textarea></div>
       <button class="btn btn-primary">Request session <i data-lucide="calendar-plus"></i></button>
     </form>
-    ${(d.sessionRequests || []).length ? `<p class="hint" style="font-weight:600;text-transform:uppercase;letter-spacing:.12em;font-size:10.5px;margin:22px 0 2px">Previous requests</p>
+    ${(d.sessionRequests || []).length ? `<p class="hint" style="font-weight:600;text-transform:uppercase;letter-spacing:.12em;font-size:10.5px;margin:22px 0 2px">Your sessions</p>
       ${d.sessionRequests.slice().reverse().map(r => `<div class="feed-row"><i data-lucide="calendar" style="color:var(--green)"></i>
-        <div class="feed-main"><b>${fmtDate(r.date + 'T00:00:00')}</b><span class="hint">${esc(r.note || 'No note added')}</span></div>
-        <span class="ago">${ago(r.at)}</span></div>`).join('')}` : ''}
+        <div class="feed-main"><b>${fmtDate(r.date + 'T00:00:00')}${r.slot ? ` · ${r.slot.start_time}` : ''}</b><span class="hint">${esc(r.note || 'No note added')}</span></div>
+        <div class="feed-side"><span class="pill ${SES_PILL[r.status] || 'st-contacted'}">${SES_L[r.status] || r.status}</span>
+        ${['pending', 'confirmed'].includes(r.status) ? `<button class="chat-btn" data-cancel-ses="${r.id}" title="Cancel booking"><i data-lucide="x"></i></button>` : `<span class="ago">${ago(r.at)}</span>`}</div></div>`).join('')}` : ''}
   </section>
   <section class="panel" style="max-width:560px">
     <div class="panel-head"><div><h3>Messages</h3><p class="hint">Direct live thread with ${esc(c.name.split(' ')[0])}</p></div></div>
@@ -1310,21 +1435,52 @@ function trendingHTML(studentMode) {
       <span class="tcount">${x.count} students</span></div>`).join('')}</div>
   </section>`;
 }
+async function loadMentorSlots() {
+  const sel = $('#b-slot');
+  if (!sel || !dash.counsellor || !dash.counsellor.id) return;
+  try {
+    const { items } = await api(`/api/slots?counsellor=${dash.counsellor.id}`);
+    let opts = '';
+    items.forEach(s => slotOccurrences(s).forEach(d2 => {
+      opts += `<option value="${s.id}|${d2}">${WD_L[new Date(d2 + 'T00:00:00').getDay()]} ${fmtDate(d2 + 'T00:00:00')} · ${s.start} (${s.minutes}m)</option>`;
+    }));
+    sel.innerHTML = '<option value="">Any date — counsellor confirms manually</option>' + opts;
+    sel.addEventListener('change', () => {
+      if (sel.value) $('#b-date').value = sel.value.split('|')[1];
+    });
+  } catch { /* free-date fallback stays */ }
+}
 function wireStudent(sec) {
   document.querySelectorAll('[data-goto]').forEach(b => b.addEventListener('click', () => goto('#/' + b.dataset.goto)));
   const f = $('#f-book');
   if (f) f.addEventListener('submit', async e => {
     e.preventDefault();
-    const date = $('#b-date').value;
+    const slotVal = $('#b-slot') ? $('#b-slot').value : '';
+    let date = $('#b-date').value, slot = null;
+    if (slotVal) { const parts = slotVal.split('|'); slot = +parts[0]; date = parts[1]; }
     $('#fw-bdate').classList.toggle('err', !date);
     if (!date) return;
     try {
-      await api('/api/sessions', { method: 'POST', body: { date, note: $('#b-note').value } });
+      const payload = slot ? { date, slot, note: $('#b-note').value } : { date, note: $('#b-note').value };
+      await api('/api/sessions', { method: 'POST', body: payload });
       toast(`Session requested for ${fmtDate(date + 'T00:00:00')}`);
       dash = await api('/api/dashboard'); renderSection('mentor');
     } catch (d) { toast(d.error || 'Could not book', 'alert-triangle'); }
   });
   paintThread('#mentor-log', me.id);
+  loadMentorSlots();
+  if (!wireStudent.cancelBound) {
+    wireStudent.cancelBound = true;
+    $('#app').addEventListener('click', async e => {
+      const c = e.target.closest('[data-cancel-ses]');
+      if (!c) return;
+      try {
+        await api(`/api/sessions/${c.dataset.cancelSes}`, { method: 'DELETE' });
+        toast('Booking cancelled');
+        dash = await api('/api/dashboard'); renderSection(currentSection);
+      } catch (d) { toast(d.error || 'Could not cancel', 'alert-triangle'); }
+    });
+  }
   const mf = $('#mentor-form');
   if (mf) mf.addEventListener('submit', async e => {
     e.preventDefault();
@@ -1353,6 +1509,7 @@ async function route() {
   if (me && !ws) connectWS();
   if (!me) { clearInterval(window._tick); return renderLogin(); }
   if (h.startsWith('#/students'))    return renderDash('students');
+  if (h.startsWith('#/sessions'))    return renderDash('sessions');
   if (h.startsWith('#/counsellors')) return renderDash('counsellors');
   if (h.startsWith('#/mentor'))      return renderDash('mentor');
   if (h.startsWith('#/trending'))    return renderDash('trending');

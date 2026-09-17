@@ -40,6 +40,14 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 }
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false } });
 
+/* pending session requests across a set of student ids */
+async function pendingRequestCount(ids) {
+  if (!ids.length) return 0;
+  const { count } = await sb.from('session_requests').select('id', { count: 'exact', head: true })
+    .in('student_id', ids).eq('status', 'pending');
+  return count || 0;
+}
+
 /* ── passwords + row mapping ──────────────────────────────── */
 const hash = (pw, salt) => crypto.scryptSync(String(pw), salt, 32).toString('hex');
 
@@ -354,7 +362,7 @@ async function dashboard(u) {
   const stats = u.role === 'admin'
     ? { students: students.length, counsellors: counsellors.length, week, delta: week - prev, enrolled }
     : { students: students.length, week, delta: week - prev, enrolled,
-        requests: students.reduce((n, s) => n + ((s.sessionRequests || []).length), 0) };
+        requests: await pendingRequestCount(students.map(s => s.id)) };
 
   return { role: u.role, stats, series, recent, subjects, streams, perf,
            students: students.map(s => ({ id: s.id, name: s.name, email: s.email, grade: s.profile.grade,
@@ -365,7 +373,7 @@ async function studentDash(u) {
   const p = u.profile || {};
   const [{ data: cRow }, { data: sr }, { data: all }, { data: hist }] = await Promise.all([
     u.counsellorId ? sb.from('users').select('*').eq('id', u.counsellorId).maybeSingle() : Promise.resolve({ data: null }),
-    sb.from('session_requests').select('*').eq('student_id', u.id).order('created_at'),
+    sb.from('session_requests').select('*, slot:slots!session_requests_slot_id_fkey(start_time, minutes)').eq('student_id', u.id).order('created_at'),
     sb.from('users').select('profile').eq('role', 'student'),
     sb.from('status_history')
       .select('from_status, to_status, created_at, changer:users!status_history_changed_by_fkey(name)')
@@ -378,7 +386,7 @@ async function studentDash(u) {
   return {
     role: 'student',
     profile: { name: u.name, email: u.email, joined: u.createdAt, status: u.status, ...p },
-    counsellor: c ? { name: c.name, email: c.email, since: c.createdAt } : null,
+    counsellor: c ? { id: c.id, name: c.name, email: c.email, since: c.createdAt } : null,
     timeline: [
       { key: 'Registered',          sub: 'Account is live',               done: true },
       { key: 'Profile complete',    sub: 'Phone & grade on file',         done: !!(p.phone && p.grade) },
@@ -387,7 +395,8 @@ async function studentDash(u) {
     ],
     history: (hist || []).map(r => ({ from: r.from_status, to: r.to_status,
       by: r.changer ? r.changer.name : null, at: new Date(r.created_at).getTime() })),
-    sessionRequests: (sr || []).map(r => ({ date: r.requested_date, note: r.note, at: new Date(r.created_at).getTime() })),
+    sessionRequests: (sr || []).map(r => ({ id: r.id, date: r.requested_date, note: r.note,
+      status: r.status || 'pending', slot: r.slot || null, at: new Date(r.created_at).getTime() })),
     subjects,
   };
 }
@@ -594,13 +603,150 @@ async function api(req, res, p) {
     return send(200, { user: sanitize(c) });
   }
 
+  /* ── Phase 3: availability slots ── */
+  if (req.method === 'GET' && p === '/api/slots') {
+    const u2 = new URL(req.url, 'http://x');
+    const cidParam = +(u2.searchParams.get('counsellor') || 0);
+    let q = sb.from('slots').select('*, counsellor:users!slots_counsellor_id_fkey(name)').order('weekday').order('start_time');
+    if (user.role === 'student') {
+      if (!user.counsellorId || (cidParam && cidParam !== user.counsellorId)) return send(403, { error: 'Forbidden' });
+      q = q.eq('counsellor_id', user.counsellorId);
+    } else if (user.role === 'counsellor') {
+      if (cidParam && cidParam !== user.id) return send(403, { error: 'Forbidden' });
+      q = q.eq('counsellor_id', user.id);
+    } else if (cidParam) q = q.eq('counsellor_id', cidParam);
+    const { data: rows } = await q;
+    return send(200, { items: (rows || []).map(r => ({ id: r.id, counsellorId: r.counsellor_id,
+      counsellor: r.counsellor ? r.counsellor.name : null, weekday: r.weekday,
+      start: r.start_time, minutes: r.minutes })) });
+  }
+
+  if (req.method === 'POST' && p === '/api/slots') {
+    const b = await body(req);
+    const cid = user.role === 'admin' ? (+b.counsellor || 0) : user.id;
+    if (user.role === 'student') return send(403, { error: 'Forbidden' });
+    if (user.role === 'admin' && !cid) return send(400, { error: 'Pick a counsellor.', field: 'counsellor' });
+    const wd = +b.weekday, mins = +b.minutes || 30;
+    if (!(wd >= 0 && wd <= 6)) return send(400, { error: 'Pick a weekday.', field: 'weekday' });
+    if (!/^[0-2][0-9]:[0-5][0-9]$/.test(String(b.start || ''))) return send(400, { error: 'Pick a start time.', field: 'start' });
+    if (!(mins >= 15 && mins <= 120)) return send(400, { error: 'Duration must be 15–120 minutes.', field: 'minutes' });
+    const { data, error } = await sb.from('slots')
+      .insert({ counsellor_id: cid, weekday: wd, start_time: b.start, minutes: mins }).select('id').single();
+    if (error) {
+      if (error.code === '23505') return send(400, { error: 'That slot already exists.', field: 'start' });
+      throw error;
+    }
+    return send(200, { id: data.id });
+  }
+
+  if (req.method === 'DELETE' && /^\/api\/slots\/\d+$/.test(p)) {
+    if (user.role === 'student') return send(403, { error: 'Forbidden' });
+    const id = +p.match(/\d+/)[0];
+    const { data: slot } = await sb.from('slots').select('id, counsellor_id').eq('id', id).maybeSingle();
+    if (!slot) return send(404, { error: 'Slot not found' });
+    if (user.role === 'counsellor' && slot.counsellor_id !== user.id) return send(403, { error: 'Forbidden' });
+    await sb.from('slots').delete().eq('id', id);
+    return send(200, { ok: true });
+  }
+
+  /* ── Phase 3: bookings with lifecycle ── */
+  async function sessionRow(id) {
+    const { data } = await sb.from('session_requests')
+      .select('*, student:users!session_requests_student_id_fkey(id, name, counsellor_id)').eq('id', id).maybeSingle();
+    return data || null;
+  }
+  function sessionVisible(u, r) {
+    if (!r || !r.student) return false;
+    if (u.role === 'admin') return true;
+    if (u.role === 'student') return r.student.id === u.id;
+    return r.student.counsellor_id === u.id;
+  }
+
+  if (req.method === 'GET' && p === '/api/sessions') {
+    if (user.role === 'student') return send(403, { error: 'Use your dashboard instead' });
+    const today = new Date().toISOString().slice(0, 10);
+    let q = sb.from('session_requests')
+      .select('*, student:users!session_requests_student_id_fkey(id, name), slot:slots!session_requests_slot_id_fkey(start_time, minutes)')
+      .or(`requested_date.gte.${today},status.eq.pending`)
+      .order('requested_date').order('created_at').limit(100);
+    if (user.role === 'counsellor') {
+      const { data: mine } = await sb.from('users').select('id').eq('role', 'student').eq('counsellor_id', user.id);
+      const ids = (mine || []).map(s => s.id);
+      if (!ids.length) return send(200, { items: [] });
+      q = q.in('student_id', ids);
+    }
+    const { data: rows } = await q;
+    const [{ data: conRows }, { data: stuRows }] = await Promise.all([
+      sb.from('users').select('id, name').eq('role', 'counsellor'),
+      sb.from('users').select('id, counsellor_id').eq('role', 'student'),
+    ]);
+    const cName = {}; (conRows || []).forEach(c => cName[c.id] = c.name);
+    const sCon = {}; (stuRows || []).forEach(s => sCon[s.id] = s.counsellor_id);
+    return send(200, { items: (rows || []).map(r => ({ id: r.id, date: r.requested_date, note: r.note,
+      status: r.status, slot: r.slot || null, studentId: r.student_id,
+      student: r.student ? r.student.name : null,
+      counsellor: (cName[sCon[r.student_id]] || 'Unassigned'),
+      at: new Date(r.created_at).getTime() })) });
+  }
+
   if (req.method === 'POST' && p === '/api/sessions') {
     if (user.role !== 'student') return send(403, { error: 'Only students can book sessions' });
     const b = await body(req);
     if (!b.date) return send(400, { error: 'Pick a date.', field: 'date' });
-    await sb.from('session_requests').insert({ student_id: user.id, requested_date: b.date, note: String(b.note || '').slice(0, 300) });
+    const today = new Date().toISOString().slice(0, 10);
+    if (b.date < today) return send(400, { error: 'Pick today or a future date.', field: 'date' });
+    if (!user.counsellorId) return send(400, { error: 'No counsellor assigned yet — try again shortly.' });
+    let slotId = null;
+    if (b.slot) {
+      const { data: slot } = await sb.from('slots').select('*').eq('id', +b.slot).maybeSingle();
+      if (!slot || slot.counsellor_id !== user.counsellorId)
+        return send(400, { error: 'That slot is no longer available.', field: 'slot' });
+      const wd = new Date(b.date + 'T00:00:00').getDay();
+      if (wd !== slot.weekday) return send(400, { error: 'Date does not match the slot weekday.', field: 'date' });
+      const { data: clash } = await sb.from('session_requests').select('id')
+        .eq('slot_id', slot.id).eq('requested_date', b.date).not('status', 'in', '(cancelled,declined)').limit(1);
+      if (clash && clash.length) return send(409, { error: 'That slot was just taken — pick another.', field: 'slot' });
+      slotId = slot.id;
+    }
+    const { data: created, error } = await sb.from('session_requests')
+      .insert({ student_id: user.id, requested_date: b.date, note: String(b.note || '').slice(0, 300), slot_id: slotId })
+      .select('id').single();
+    if (error) throw error;
     broadcast('staff', { reason: 'session:new', name: user.name, date: b.date }, ['admin', 'counsellor'],
-      user.counsellorId ? [user.counsellorId] : null);
+      [user.counsellorId]);
+    return send(200, { id: created.id });
+  }
+
+  if (req.method === 'PATCH' && /^\/api\/sessions\/\d+$/.test(p)) {
+    if (user.role === 'student') return send(403, { error: 'Forbidden' });
+    const id = +p.match(/\d+/)[0];
+    const r = await sessionRow(id);
+    if (!r) return send(404, { error: 'Booking not found' });
+    if (!sessionVisible(user, r)) return send(403, { error: 'Forbidden' });
+    const b = await body(req);
+    const next = String(b.status || '');
+    const allowed = r.status === 'pending'
+      ? ['confirmed', 'declined', 'cancelled']
+      : r.status === 'confirmed' ? ['completed', 'cancelled'] : [];
+    if (!allowed.includes(next)) return send(400, { error: `Cannot move ${r.status} → ${next || 'that'}.`, field: 'status' });
+    await sb.from('session_requests').update({ status: next, decided_by: user.id, decided_at: new Date().toISOString() }).eq('id', id);
+    broadcast('staff', { reason: 'session:update', name: r.student.name, status: next, date: r.requested_date },
+      ['admin', 'counsellor'], [r.student.counsellor_id].filter(Boolean), user.id);
+    broadcast('session', { status: next, date: r.requested_date }, null, [r.student.id]);
+    return send(200, { ok: true });
+  }
+
+  if (req.method === 'DELETE' && /^\/api\/sessions\/\d+$/.test(p)) {
+    const id = +p.match(/\d+/)[0];
+    const r = await sessionRow(id);
+    if (!r) return send(404, { error: 'Booking not found' });
+    if (user.role === 'student' && r.student.id !== user.id) return send(403, { error: 'Forbidden' });
+    if (!sessionVisible(user, r)) return send(403, { error: 'Forbidden' });
+    if (!['pending', 'confirmed'].includes(r.status)) return send(400, { error: 'Only upcoming bookings can be cancelled.' });
+    await sb.from('session_requests').update({ status: 'cancelled' }).eq('id', id);
+    broadcast('staff', { reason: 'session:update', name: r.student.name, status: 'cancelled', date: r.requested_date },
+      ['admin', 'counsellor'], [r.student.counsellor_id].filter(Boolean), user.id);
+    broadcast('session', { status: 'cancelled', date: r.requested_date }, null, [r.student.id]);
     return send(200, { ok: true });
   }
 
