@@ -243,6 +243,11 @@ function body(req) {
     req.on('end', () => { try { resolve(JSON.parse(d || '{}')); } catch { resolve({}); } });
   });
 }
+const GRADES_OK = ['Class 8','Class 9','Class 10','Class 11','Class 12','Dropper','Undergraduate','Graduate'];
+const STREAMS_OK = ['Science','Commerce','Arts / Humanities'];
+const BOARDS_OK = ['CBSE','ICSE','State Board','IB','Cambridge (IGCSE / A-Levels)','NIOS','Other'];
+const ABROAD_OK = ['Yes','No','Not sure yet'];
+const ENG_SCALES = { 'IELTS': [0, 9], 'TOEFL iBT': [0, 120], 'PTE Academic': [10, 90], 'Duolingo English Test': [10, 160] };
 function validateReg(b) {
   const bad = (msg, field) => ({ error: msg, field });
   const s = v => String(v || '').trim();
@@ -251,24 +256,46 @@ function validateReg(b) {
   const now = new Date();
   let age = isNaN(dob) ? null : now.getFullYear() - dob.getFullYear();
   if (age !== null && (now.getMonth() < dob.getMonth() || (now.getMonth() === dob.getMonth() && now.getDate() < dob.getDate()))) age--;
-  return (!s(b.name) || s(b.name).length < 3) ? bad('Please enter your full name.', 'name')
-    : !/^\S+@\S+\.\S+$/.test(s(b.email)) ? bad('Enter a valid email address.', 'email')
-    : !/^[+()\-\s\d]{10,16}$/.test(s(b.phone)) || digits < 10 || digits > 15 ? bad('Enter a valid phone number (10–15 digits).', 'phone')
-    : !b.dob ? bad('Pick your date of birth.', 'dob')
-    : age === null || age < 10 || age > 35 ? bad('Students must be 10–35 years old.', 'dob')
-    : !b.gender ? bad('Select an option.', 'gender')
-    : String(b.password || '').length < 6 ? bad('Password needs at least 6 characters.', 'password')
-    : b.password !== b.confirm ? bad('Passwords do not match.', 'confirm')
-    : !b.grade ? bad('Select your current grade.', 'grade')
-    : !b.stream ? bad('Select your stream.', 'stream')
-    : !s(b.school) ? bad('Enter your school / college.', 'school')
-    : !s(b.city) ? bad('Enter your city.', 'city')
-    : !Array.isArray(b.subjects) || !b.subjects.length ? bad('Pick at least one subject.', 'subjects')
-    : !b.goal ? bad('Choose your primary goal.', 'goal')
-    : !b.mode ? bad('Choose a counselling mode.', 'mode')
-    : !b.hear ? bad('Tell us how you found us.', 'hear')
-    : !b.consent ? bad('Please accept the consent to continue.', 'consent')
-    : null;
+  const grade11 = s(b.grade) === 'Class 11';
+  const abroad = ABROAD_OK.includes(b.abroad) ? b.abroad : '';
+  const ab = abroad !== 'No';
+  const eng = ENG_SCALES[b.engType];
+  const engScore = parseFloat(b.engScore);
+  const nonEmpty = v => s(v).length > 0;
+  if ((!s(b.name) || s(b.name).length < 3)) return bad('Please enter your full name.', 'name');
+  if (!/^\S+@\S+\.\S+$/.test(s(b.email))) return bad('Enter a valid email address.', 'email');
+  if (!/^[+()\-\s\d]{10,18}$/.test(s(b.phone)) || digits < 10 || digits > 15) return bad('Enter a valid phone number with country code (10–15 digits).', 'phone');
+  if (!b.dob) return bad('Pick your date of birth.', 'dob');
+  if (age === null || age < 10 || age > 35) return bad('Students must be 10–35 years old.', 'dob');
+  if (s(b.nationality).length < 2) return bad('Tell us your nationality.', 'nationality');
+  if (!b.gender) return bad('Select an option.', 'gender');
+  if (String(b.password || '').length < 6) return bad('Password needs at least 6 characters.', 'password');
+  if (b.password !== b.confirm) return bad('Passwords do not match.', 'confirm');
+  if (!GRADES_OK.includes(s(b.grade))) return bad('Select your grade (Class 8 and up).', 'grade');
+  if (grade11 && !STREAMS_OK.includes(s(b.stream))) return bad('Select your stream.', 'stream');
+  if (s(b.school).length < 2) return bad('Enter your school / college.', 'school');
+  if (!BOARDS_OK.includes(s(b.board))) return bad('Select your syllabus / board.', 'board');
+  if (s(b.board) === 'Other' && s(b.boardOther).length < 2) return bad('Name your board / curriculum.', 'boardother');
+  if (!nonEmpty(b.state)) return bad('Select your state.', 'state');
+  if (s(b.district).length < 2) return bad('Enter your district.', 'district');
+  if (s(b.city).length < 2) return bad('Enter your city / town.', 'city');
+  if (grade11 && (!Array.isArray(b.subjects) || !b.subjects.length)) return bad('Pick at least one subject.', 'subjects');
+  if (!Array.isArray(b.enjoySubjects) || !b.enjoySubjects.length) return bad('Pick at least one subject you enjoy.', 'enjoy');
+  if (!b.goal) return bad('Choose your primary goal.', 'goal');
+  if (!b.mode) return bad('Choose a counselling mode.', 'mode');
+  if (!b.undecided && s(b.career).length < 2) return bad('Tell us your career interest — or tick undecided.', 'career');
+  if (!Array.isArray(b.activities) || !b.activities.length) return bad('Pick at least one activity you enjoy.', 'activities');
+  if (!abroad) return bad('Tell us about your study-abroad plans.', 'abroad');
+  if (ab && (!Array.isArray(b.countries) || !b.countries.length)) return bad('Pick at least one country — or add your own.', 'countries');
+  if (ab && !nonEmpty(b.budget)) return bad('Choose a tuition budget band.', 'budget');
+  if (ab && !nonEmpty(b.funds)) return bad('Tell us your source of funds.', 'funds');
+  if (ab && !['Yes', 'No'].includes(b.englishNeeded)) return bad('Say whether you need an English test.', 'engneed');
+  if (ab && b.englishNeeded === 'Yes' && !eng) return bad('Pick your English exam type.', 'engtype');
+  if (ab && b.englishNeeded === 'Yes' && !(isFinite(engScore) && engScore >= eng[0] && engScore <= eng[1]))
+    return bad('Enter a valid score for that exam.', 'engscore');
+  if (!b.hear) return bad('Tell us how you found us.', 'hear');
+  if (!b.consent) return bad('Please accept the consent to continue.', 'consent');
+  return null;
 }
 
 /* ── WebSockets (hand-rolled RFC 6455 — no dependencies) ──── */
@@ -505,8 +532,19 @@ async function api(req, res, p) {
     try {
       u = await createUser({ role: 'student', name: b.name.trim(), email, password: b.password,
         counsellorId: cid, status: 'new',
-        profile: { phone: b.phone.trim(), dob: b.dob, gender: b.gender, grade: b.grade, stream: b.stream,
-                   school: b.school.trim(), city: b.city.trim(), subjects: b.subjects, goal: b.goal, mode: b.mode, hear: b.hear } });
+        profile: { phone: String(b.phone).trim(), dob: b.dob, gender: b.gender, nationality: String(b.nationality || '').trim(),
+                   grade: b.grade, stream: b.grade === 'Class 11' ? b.stream : null,
+                   school: b.school.trim(), board: b.board, boardOther: b.board === 'Other' ? String(b.boardOther || '').trim() : null,
+                   state: String(b.state || '').trim(), district: String(b.district || '').trim(), city: b.city.trim(),
+                   subjects: b.grade === 'Class 11' ? b.subjects.map(String) : [], enjoySubjects: (b.enjoySubjects || []).map(String),
+                   goal: b.goal, mode: b.mode, exams: (b.exams || []).map(String), mockTests: !!b.mockTests,
+                   career: b.undecided ? null : String(b.career || '').trim(), undecided: !!b.undecided,
+                   activities: (b.activities || []).map(String), futureNote: String(b.futureNote || '').slice(0, 500),
+                   abroad: b.abroad, countries: (b.countries || []).map(String), universities: (b.universities || []).map(String),
+                   budget: b.budget || null, funds: b.funds || null,
+                   englishNeeded: b.englishNeeded || null, engType: b.engType || null,
+                   engScore: b.engScore === undefined || b.engScore === '' ? null : Number(b.engScore),
+                   intake: b.intake || null, startYear: b.startYear || null, hear: b.hear } });
     } catch (e) {
       if (e.code === '23505') return send(400, { error: 'This email is already registered — try signing in.', field: 'email' });
       throw e;
@@ -700,7 +738,7 @@ async function api(req, res, p) {
         return send(400, { error: 'Students must be 10–35 years old.', field: 'dob' });
       pr.dob = pf.dob;
     }
-    for (const k of ['gender', 'grade', 'stream', 'school', 'city', 'goal', 'mode', 'hear']) {
+    for (const k of ['gender', 'nationality', 'grade', 'stream', 'school', 'board', 'boardOther', 'state', 'district', 'city', 'goal', 'mode', 'hear']) {
       if (pf[k] !== undefined) {
         if (!String(pf[k] || '').trim()) return send(400, { error: 'Field cannot be empty.', field: k });
         pr[k] = String(pf[k]).trim();
@@ -897,12 +935,15 @@ async function api(req, res, p) {
     ]);
     const cName = {}; (conRows || []).forEach(c => cName[c.id] = c.name);
     const ST = { new: 'New', contacted: 'Contacted', counselling: 'In counselling', enrolled: 'Enrolled' };
-    const head = ['Name','Email','Phone','DOB','Gender','Grade','Stream','School','City','Subjects','Goal','Counselling mode','Heard via','Status','Counsellor','Registered'];
+    const head = ['Name','Email','Phone','DOB','Gender','Nationality','Grade','Stream','School','Board','State','District','City','Subjects','Enjoys','Goal','Career','Abroad','Countries','Budget','Counselling mode','Heard via','Status','Counsellor','Registered'];
     const q2 = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
     const lines = [head.join(',')].concat((rows || []).map(r => {
       const pr = r.profile || {};
-      return [r.name, r.email, pr.phone, pr.dob, pr.gender, pr.grade, pr.stream, pr.school, pr.city,
-        (pr.subjects || []).join('; '), pr.goal, pr.mode, pr.hear, ST[r.status],
+      return [r.name, r.email, pr.phone, pr.dob, pr.gender, pr.nationality, pr.grade, pr.stream, pr.school,
+        pr.board === 'Other' ? (pr.boardOther || 'Other') : pr.board, pr.state, pr.district, pr.city,
+        (pr.subjects || []).join('; '), (pr.enjoySubjects || []).join('; '), pr.goal,
+        pr.undecided ? 'Undecided' : pr.career, pr.abroad, (pr.countries || []).join('; '), pr.budget,
+        pr.mode, pr.hear, ST[r.status],
         cName[r.counsellor_id] || 'Unassigned', new Date(r.created_at).toISOString().slice(0, 10)].map(q2).join(',');
     }));
     res.writeHead(200, {
