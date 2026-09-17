@@ -166,10 +166,14 @@ const redirect  = (res, to) => { res.writeHead(302, { Location: to }); res.end()
 
 /* ── CORS for the split deployment (SPA on Vercel, API here) ──
    Allows SITE_URL, extra origins in WEB_ORIGINS (comma-separated), and any *.vercel.app preview. */
+function isTrustedOrigin(origin) {
+  if (!origin) return false;
+  const extra = (process.env.WEB_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
+  return origin === SITE_URL || origin.endsWith('.vercel.app') || extra.includes(origin);
+}
 function cors(req, res) {
   const origin = req.headers.origin;
-  const extra = (process.env.WEB_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
-  if (origin && (origin === SITE_URL || origin.endsWith('.vercel.app') || extra.includes(origin))) {
+  if (origin && isTrustedOrigin(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
     res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -201,18 +205,26 @@ async function authUser(req) {
   return rowToUser(data.users);
 }
 
-/* ── magic link callback (students only) ──────────────────── */
+/* ── magic link callback (students only) ────────────────────
+   ?next=<spa-origin> bounces the user back to the SPA they came from (e.g. Vercel).
+   The session cookie is set on THIS (API) domain first, so the bounce target reuses it
+   cross-site via SameSite=None; Secure. Untrusted/missing next → SITE_URL. */
+function bounceTarget(u) {
+  const next = u.searchParams.get('next');
+  return next && isTrustedOrigin(next) ? next.replace(/\/$/, '') : SITE_URL;
+}
 async function authCallback(req, res, u) {
+  const dest = bounceTarget(u);
   const token_hash = u.searchParams.get('token_hash');
   const type = u.searchParams.get('type') || 'magiclink';
-  if (!token_hash) return redirect(res, SITE_URL + '/#/magic-failed');
+  if (!token_hash) return redirect(res, dest + '/#/magic-failed');
   const { data, error } = await sb.auth.verifyOtp({ type, token_hash });
   const email = !error && data?.user?.email ? data.user.email.toLowerCase() : null;
-  if (!email) return redirect(res, SITE_URL + '/#/magic-failed');
+  if (!email) return redirect(res, dest + '/#/magic-failed');
   const { data: row } = await sb.from('users').select('id, role').eq('email', email).maybeSingle();
-  if (!row) return redirect(res, SITE_URL + '/#/magic-failed');
+  if (!row) return redirect(res, dest + '/#/magic-failed');
   setCookie(res, await createSession(row.id));
-  redirect(res, SITE_URL + '/#/dashboard');
+  redirect(res, dest + '/#/dashboard');
 }
 
 /* ── helpers ──────────────────────────────────────────────── */
@@ -393,8 +405,16 @@ async function api(req, res, p) {
     if (!/^\S+@\S+\.\S+$/.test(email)) return send(400, { error: 'Enter a valid email.' });
     const { data: row } = await sb.from('users').select('id, role').eq('email', email).maybeSingle();
     if (!row || row.role !== 'student') return send(200, { sent: false });
-    const { error } = await sb.auth.signInWithOtp({ email, options: { redirectTo: SITE_URL + '/auth/callback' } });
-    if (error) return send(429, { error: 'Too many emails right now — wait a minute and retry.' });
+    /* carry the SPA origin through Supabase so /auth/callback can bounce back to it */
+    const origin = isTrustedOrigin(b.origin) && b.origin !== SITE_URL ? b.origin.replace(/\/$/, '') : '';
+    const { error } = await sb.auth.signInWithOtp({ email,
+      options: { redirectTo: SITE_URL + '/auth/callback' + (origin ? '?next=' + encodeURIComponent(origin) : '') } });
+    if (error) {
+      /* Supabase rejects undeliverable (e.g. demo/fake-domain) addresses at validation */
+      if (error.status === 400 || error.status === 422)
+        return send(400, { error: 'This email address cannot receive sign-in links — please use your password.' });
+      return send(429, { error: 'Too many emails right now — wait a minute and retry.' });
+    }
     return send(200, { sent: true });
   }
 
