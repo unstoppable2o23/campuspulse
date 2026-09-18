@@ -127,7 +127,7 @@ svg.lucide{width:18px;height:18px;flex:none}
 .steps li.on .snum{border-color:var(--green);color:var(--green);box-shadow:0 0 0 4px var(--amber-soft)}
 .pane{animation:rise .3s ease both}
 @keyframes rise{from{opacity:0;transform:translateY(8px)}}
-.wiz-nav{display:flex;justify-content:space-between;margin-top:8px}
+.wiz-nav{display:flex;justify-content:space-between;margin-top:8px;position:sticky;bottom:0;background:var(--paper);padding:12px 0;border-top:1px dashed var(--line)}
 
 /* ── app shell ──────────────────────────────────────────── */
 .shell{display:grid;grid-template-columns:238px 1fr;min-height:100vh}
@@ -685,7 +685,7 @@ function renderRegister() {
   app.innerHTML = `<div class="auth">${brandPanel()}
     <main class="auth-main"><div class="auth-box wide">
       <h2 class="auth-title">Create your student account</h2>
-      <p class="auth-sub">Four quick steps — your counsellor is assigned instantly.</p>
+      <p class="auth-sub" id="reg-sub">Four quick steps — your counsellor is assigned instantly.</p>
       <ol class="steps" id="steps">
         <li data-s="1"><span class="snum">1</span><span class="slbl">About you</span></li>
         <li data-s="2"><span class="snum">2</span><span class="slbl">Education</span></li>
@@ -1208,6 +1208,10 @@ function showPane() {
   });
   $('#wiz-back').hidden = regStep === 1;
   const lastStep = window.cpLastStep || 4;
+  const sub = $('#reg-sub');
+  if (sub) sub.textContent = lastStep === 4
+    ? 'Four quick steps — your counsellor is assigned instantly.'
+    : 'Three quick steps — your counsellor is assigned instantly.';
   $('#wiz-next').innerHTML = regStep === lastStep
     ? 'Review & create account <i data-lucide="user-plus"></i>'
     : 'Continue <i data-lucide="arrow-right"></i>';
