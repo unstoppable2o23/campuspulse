@@ -1029,7 +1029,9 @@ function staticFile(res, p) {
   if (!fs.existsSync(full) || fs.statSync(full).isDirectory()) full = path.join(PUBLIC, 'index.html');
   fs.readFile(full, (e, buf) => {
     if (e) { res.writeHead(500); return res.end(); }
-    res.writeHead(200, { 'Content-Type': MIME[path.extname(full)] || 'application/octet-stream' });
+    res.writeHead(200, { 'Content-Type': MIME[path.extname(full)] || 'application/octet-stream',
+      /* single-file app: never let browsers pin a stale copy */
+      'Cache-Control': 'no-store' });
     res.end(buf);
   });
 }
