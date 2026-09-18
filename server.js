@@ -247,6 +247,7 @@ const GRADES_OK = ['Class 8','Class 9','Class 10','Class 11','Class 12','Dropper
 const STREAMS_OK = ['Science','Commerce','Arts / Humanities'];
 const BOARDS_OK = ['CBSE','ICSE','State Board','IB','Cambridge (IGCSE / A-Levels)','NIOS','Other'];
 const ABROAD_OK = ['Yes','No','Not sure yet'];
+const IN_STATES_OK = ['Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhattisgarh','Delhi','Goa','Gujarat','Haryana','Himachal Pradesh','Jharkhand','Karnataka','Kerala','Madhya Pradesh','Maharashtra','Manipur','Meghalaya','Mizoram','Nagaland','Odisha','Punjab','Rajasthan','Sikkim','Tamil Nadu','Telangana','Tripura','Uttar Pradesh','Uttarakhand','West Bengal','Jammu & Kashmir','Ladakh','Chandigarh','Puducherry','Andaman & Nicobar','Lakshadweep','Dadra & Nagar Haveli and Daman & Diu'];
 const ENG_SCALES = { 'IELTS': [0, 9], 'TOEFL iBT': [0, 120], 'PTE Academic': [10, 90], 'Duolingo English Test': [10, 160] };
 function validateReg(b) {
   const bad = (msg, field) => ({ error: msg, field });
@@ -257,6 +258,8 @@ function validateReg(b) {
   let age = isNaN(dob) ? null : now.getFullYear() - dob.getFullYear();
   if (age !== null && (now.getMonth() < dob.getMonth() || (now.getMonth() === dob.getMonth() && now.getDate() < dob.getDate()))) age--;
   const grade11 = s(b.grade) === 'Class 11';
+  const grad = s(b.grade) === 'Graduate';
+  const indian = s(b.nationality).toLowerCase() === 'indian';
   const abroad = ABROAD_OK.includes(b.abroad) ? b.abroad : '';
   const ab = abroad !== 'No';
   const eng = ENG_SCALES[b.engType];
@@ -276,11 +279,14 @@ function validateReg(b) {
   if (s(b.school).length < 2) return bad('Enter your school / college.', 'school');
   if (!BOARDS_OK.includes(s(b.board))) return bad('Select your syllabus / board.', 'board');
   if (s(b.board) === 'Other' && s(b.boardOther).length < 2) return bad('Name your board / curriculum.', 'boardother');
-  if (!nonEmpty(b.state)) return bad('Select your state.', 'state');
-  if (s(b.district).length < 2) return bad('Enter your district.', 'district');
-  if (s(b.city).length < 2) return bad('Enter your city / town.', 'city');
+  if (!nonEmpty(b.state) || (indian && !IN_STATES_OK.includes(s(b.state)))) return bad(indian ? 'Select your state.' : 'Enter your state / province.', 'state');
+  if (indian && s(b.district).length < 2) return bad('Enter your district.', 'district');
+  if (!indian && s(b.city).length < 2) return bad('Enter your city.', 'city');
   if (grade11 && (!Array.isArray(b.subjects) || !b.subjects.length)) return bad('Pick at least one subject.', 'subjects');
   if (!Array.isArray(b.enjoySubjects) || !b.enjoySubjects.length) return bad('Pick at least one subject you enjoy.', 'enjoy');
+  if (grad && !['Working', 'Fresher'].includes(b.employmentStatus)) return bad('Tell us whether you are working or a fresher.', 'empstat');
+  if (grad && b.employmentStatus === 'Working' && s(b.workplace).length < 2) return bad('Tell us where you work.', 'empwork');
+  if (grad && s(b.workField).length < 2) return bad(b.employmentStatus === 'Working' ? 'Tell us your current field / role.' : 'Tell us which field you want.', 'empfield');
   if (!b.goal) return bad('Choose your primary goal.', 'goal');
   if (!b.mode) return bad('Choose a counselling mode.', 'mode');
   if (!b.undecided && s(b.career).length < 2) return bad('Tell us your career interest — or tick undecided.', 'career');
@@ -535,7 +541,11 @@ async function api(req, res, p) {
         profile: { phone: String(b.phone).trim(), dob: b.dob, gender: b.gender, nationality: String(b.nationality || '').trim(),
                    grade: b.grade, stream: b.grade === 'Class 11' ? b.stream : null,
                    school: b.school.trim(), board: b.board, boardOther: b.board === 'Other' ? String(b.boardOther || '').trim() : null,
-                   state: String(b.state || '').trim(), district: String(b.district || '').trim(), city: b.city.trim(),
+                   state: String(b.state || '').trim(), district: String(b.district || '').trim(),
+                   city: (String(b.city || '').trim() || String(b.district || '').trim()),
+                   subjects: b.grade === 'Class 11' ? b.subjects.map(String) : [], enjoySubjects: (b.enjoySubjects || []).map(String),
+                   employmentStatus: b.employmentStatus || null, workplace: String(b.workplace || '').trim() || null,
+                   workField: String(b.workField || '').trim() || null,
                    subjects: b.grade === 'Class 11' ? b.subjects.map(String) : [], enjoySubjects: (b.enjoySubjects || []).map(String),
                    goal: b.goal, mode: b.mode, exams: (b.exams || []).map(String), mockTests: !!b.mockTests,
                    career: b.undecided ? null : String(b.career || '').trim(), undecided: !!b.undecided,
@@ -935,13 +945,14 @@ async function api(req, res, p) {
     ]);
     const cName = {}; (conRows || []).forEach(c => cName[c.id] = c.name);
     const ST = { new: 'New', contacted: 'Contacted', counselling: 'In counselling', enrolled: 'Enrolled' };
-    const head = ['Name','Email','Phone','DOB','Gender','Nationality','Grade','Stream','School','Board','State','District','City','Subjects','Enjoys','Goal','Career','Abroad','Countries','Budget','Counselling mode','Heard via','Status','Counsellor','Registered'];
+    const head = ['Name','Email','Phone','DOB','Gender','Nationality','Grade','Stream','School','Board','State','District','City','Subjects','Enjoys','Employment','Goal','Career','Abroad','Countries','Budget','Counselling mode','Heard via','Status','Counsellor','Registered'];
     const q2 = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
     const lines = [head.join(',')].concat((rows || []).map(r => {
       const pr = r.profile || {};
+      const emp = pr.employmentStatus ? pr.employmentStatus + (pr.workField ? ' – ' + pr.workField : '') : '';
       return [r.name, r.email, pr.phone, pr.dob, pr.gender, pr.nationality, pr.grade, pr.stream, pr.school,
         pr.board === 'Other' ? (pr.boardOther || 'Other') : pr.board, pr.state, pr.district, pr.city,
-        (pr.subjects || []).join('; '), (pr.enjoySubjects || []).join('; '), pr.goal,
+        (pr.subjects || []).join('; '), (pr.enjoySubjects || []).join('; '), emp, pr.goal,
         pr.undecided ? 'Undecided' : pr.career, pr.abroad, (pr.countries || []).join('; '), pr.budget,
         pr.mode, pr.hear, ST[r.status],
         cName[r.counsellor_id] || 'Unassigned', new Date(r.created_at).toISOString().slice(0, 10)].map(q2).join(',');
