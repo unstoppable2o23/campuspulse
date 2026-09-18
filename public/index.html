@@ -618,7 +618,7 @@ function renderLogin() {
 const SUBJ = ['Physics','Chemistry','Mathematics','Biology','Computer Science','Accountancy','Business Studies','Economics','English','History','Political Science','Psychology'];
 const GRADES = ['Class 8','Class 9','Class 10','Class 11','Class 12','Dropper','Undergraduate','Graduate'];
 const STREAMS = ['Science','Commerce','Arts / Humanities'];
-const GOALS = ['Engineering (JEE)','Medical (NEET)','Study Abroad','Government Exams','Placement & Skills','Still exploring'];
+const GOALS = ['Prepare for higher education','Prepare for competitive exams','Looking for a job','Build career skills','Explore career options','Start a business','Study abroad','Improve academic performance','Other'];
 const MODES = ['Online','In-person','Either'];
 const HEARD = ['Instagram','YouTube','Friend / Family','School','Google Search','Other'];
 const BOARDS = ['CBSE','ICSE','State Board','IB','Cambridge (IGCSE / A-Levels)','NIOS','Other'];
@@ -626,8 +626,11 @@ const IN_STATES = ['Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhatti
 const PHONE_CODES = ['+91','+1','+44','+61','+65','+971','+966','+974','+965','+973','+968','+49','+33','+31','+353','+64','+880','+977','+94','+60'];
 const NATIONALITIES = ['Indian','American','British','Canadian','Australian','Emirati','Saudi','Qatari','Kuwaiti','Bangladeshi','Nepali','Sri Lankan','Malaysian','Singaporean','German','French','Dutch','Irish','New Zealander','Other'];
 const EXAMS_OPT = ['SAT','ACT','JEE Main','JEE Advanced','NEET','AP (Advanced Placement)','A-Levels','IB (International Baccalaureate)','CUET','TOEFL','IELTS','PTE','GRE','GMAT','OTHER'];
+const EXAMS_PG = ['GRE','GMAT','CAT','GATE','TOEFL','IELTS','PTE','Duolingo English Test','OTHER'];
+const GRADES_ABROAD = ['Class 8','Class 9','Class 10','Class 11','Class 12'];
+function examOptions(grade) { return ['Undergraduate', 'Graduate'].includes(grade) ? EXAMS_PG : EXAMS_OPT; }
 const CAREERS = ['Software Engineer','Doctor','Data Scientist','Designer','Chartered Accountant','Lawyer','Civil Servant','Pilot','Architect','Teacher','Researcher','Entrepreneur','Marketing Specialist','Mechanical Engineer','Electrical Engineer','Civil Engineer','Pharmacist','Journalist'];
-const ACTIVITIES = ['Coding / Technology','Solving problems','Working with numbers','Research','Designing','Writing','Communication','Teaching','Helping people','Business / Entrepreneurship','Working with machines','Building / Making things','Working outdoors','Working with data','Creating content','Working with animals','Science / Experiments','Leadership','Planning / Organizing'];
+const ACTIVITIES = ['Sports','Music','Art & Design','Coding / Technology','Reading','Writing','Public Speaking','Volunteering','Entrepreneurship','Research','Gaming'];
 const ABROAD_OPT = ['Yes','No','Not sure yet'];
 const TOP_COUNTRIES = ['USA','UK','Canada','Australia','Germany','Ireland','Netherlands','Singapore','New Zealand','France','UAE','Japan'];
 const UNIVERSITIES = ['MIT','Stanford University','Harvard University','University of Oxford','University of Cambridge','ETH Zurich','National University of Singapore','University of Toronto','University of Melbourne','TU Munich','University of Waterloo','Arizona State University','Northeastern University','University of Sydney','TU Delft','Trinity College Dublin','University of Auckland','McGill University','University of Manchester','RWTH Aachen','University of British Columbia','Purdue University','TU Berlin','Delft'];
@@ -732,9 +735,25 @@ function renderRegister() {
             <div class="field" id="fw-empwork" hidden><label for="r-empwork">Where are you currently working?</label><input id="r-empwork" type="text" placeholder="Company / organisation"><p class="err-msg"></p></div>
             <div class="field" id="fw-empfield" hidden><label for="r-empfield" id="empfield-label">Which field would you like to work in?</label><input id="r-empfield" type="text" placeholder="e.g. Data Science"><p class="err-msg"></p></div>
           </div>
+          <div id="ug-block" hidden>
+            <div class="frow">
+              ${Fld('degree', 'Degree / Course', 'text', 'e.g. B.Tech, B.Com, BA')}
+              ${Fld('studyfield', 'Field of study', 'text', 'e.g. Computer Science')}
+            </div>
+          </div>
         </div>
         <div class="pane" data-p="3" hidden>
           ${Sel('goal', 'Primary goal', GOALS, 'What are you aiming for?')}
+          <div class="field" id="fw-goalother" hidden><label for="r-goalother">Specify your primary goal</label><input id="r-goalother" type="text" placeholder="e.g. Become a commercial pilot"><p class="err-msg"></p></div>
+          <div id="job-block" hidden>
+            <div class="field" id="fw-jobstatus"><label>Are you a fresher or currently working?</label>
+              <div class="pills" id="job-pills">${EMP_STATUSES.map(m => `<button type="button" class="chip" data-v="${m}">${m}</button>`).join('')}</div>
+              <p class="err-msg"></p></div>
+            <div class="frow">
+              <div class="field" id="fw-jobfield"><label for="r-jobfield" id="jobfield-label">Which field / job role are you looking for?</label><input id="r-jobfield" type="text" placeholder="e.g. Frontend Developer"><p class="err-msg"></p></div>
+              <div class="field" id="fw-jobtype"><label for="r-jobtype">What type of job interests you?</label><select id="r-jobtype"><option value="">Select…</option>${JOB_TYPES.map(o => `<option>${o}</option>`).join('')}</select><p class="err-msg"></p></div>
+            </div>
+          </div>
           <div class="field" id="fw-mode"><label>Preferred counselling mode</label>
             <div class="pills" id="mode-pills">${MODES.map(m => `<button type="button" class="chip" data-v="${m}">${m}</button>`).join('')}</div>
             <p class="err-msg"></p></div>
@@ -748,13 +767,18 @@ function renderRegister() {
           <label class="check" id="fw-undecided"><input type="checkbox" id="r-undecided">
             <span>I haven't decided yet.</span></label>
           <div class="field" id="fw-activities"><label>What activities do you enjoy?</label>
-            <p class="hint" style="margin:2px 0 4px">Pick all that apply. These are interests, not a test result.</p>
-            <div class="chips" id="activity-chips">${ACTIVITIES.map(s => `<button type="button" class="chip" data-v="${s}">${s}</button>`).join('')}</div>
+            <p class="hint" style="margin:2px 0 4px">Pick all that apply.</p>
+            <div class="chips" id="activity-chips">${ACTIVITIES.map(s => `<button type="button" class="chip" data-v="${s}">${s}</button>`).join('')}<button type="button" class="chip" data-v="Other">Other</button></div>
+            <div id="activity-other-wrap" hidden style="margin-top:8px"><input id="activity-other" placeholder="Tell us which activity…" style="width:100%"></div>
             <p class="err-msg"></p></div>
           <div class="field"><label for="r-future">Tell us what you're thinking about for your future (optional)</label>
             <textarea id="r-future" rows="2" placeholder="Dreams, dilemmas, plans — anything…"></textarea></div>
+          ${Sel('hear', 'How did you hear about us?', HEARD, 'Select…')}
+          <label class="check" id="fw-consent"><input type="checkbox" id="r-consent">
+            <span>I agree to be contacted by my assigned counsellor and accept the platform terms.<span class="err-msg" style="display:block"></span></span></label>
         </div>
         <div class="pane" data-p="4" hidden>
+          <div id="abroad-block">
           <div class="field" id="fw-abroad"><label>Are you planning to study abroad?</label>
             <div class="pills" id="abroad-pills">${ABROAD_OPT.map(m => `<button type="button" class="chip" data-v="${m}">${m}</button>`).join('')}</div>
             <p class="err-msg"></p></div>
@@ -786,9 +810,6 @@ function renderRegister() {
               <div class="field"><label for="r-year">Preferred start year (optional)</label><select id="r-year"><option value="">Select…</option>${START_YEARS.map(o => `<option>${o}</option>`).join('')}</select></div>
             </div>
           </div>
-          ${Sel('hear', 'How did you hear about us?', HEARD, 'Select…')}
-          <label class="check" id="fw-consent"><input type="checkbox" id="r-consent">
-            <span>I agree to be contacted by my assigned counsellor and accept the platform terms.<span class="err-msg" style="display:block"></span></span></label>
         </div>
         <p id="reg-err" class="form-error" hidden></p>
         <div class="wiz-nav">
@@ -798,7 +819,7 @@ function renderRegister() {
       </form>
     </div></main></div>`;
   icons(); clearInterval(window._tick); regStep = 1;
-  Object.assign(reg, { subjects: [], mode: '', enjoySubjects: [], exams: [], activities: [], countries: [], universities: [], abroad: '', englishNeeded: '', undecided: false, empStatus: '' });
+  Object.assign(reg, { subjects: [], mode: '', enjoySubjects: [], exams: [], activities: [], countries: [], universities: [], abroad: '', englishNeeded: '', undecided: false, empStatus: '', jobStatus: '' });
 
   const isGrade11 = () => ($('#r-grade') || {}).value === 'Class 11';
   const paintSubjChips = () => {
@@ -808,22 +829,40 @@ function renderRegister() {
     $('#subj-chips').innerHTML = list.map(s =>
       `<button type="button" class="chip${reg.subjects.includes(s) ? ' on' : ''}" data-v="${s}">${s}</button>`).join('');
   };
+  const abroadApplicable = () => GRADES_ABROAD.includes(($('#r-grade') || {}).value || '');
   const refreshEduVisibility = () => {
     const grade = ($('#r-grade') || {}).value || '';
     const on = grade === 'Class 11';
+    const grad = grade === 'Graduate';
+    const streamWrap = $('#fw-stream');
+    streamWrap.hidden = !on;
     const streamSel = $('#r-stream');
-    streamSel.disabled = !on;
-    streamSel.innerHTML = on
-      ? `<option value="">Select stream…</option>${STREAMS.map(o => `<option>${o}</option>`).join('')}`
-      : `<option value="">Select grade 11 first…</option>`;
+    streamSel.innerHTML = `<option value="">Select stream…</option>${STREAMS.map(o => `<option>${o}</option>`).join('')}`;
     if (!on) { reg.subjects = []; }
     $('#fw-subjects').hidden = !on;
     if (on) paintSubjChips();
-    const grad = grade === 'Graduate';
     $('#employ-block').hidden = !grad;
     if (!grad) { reg.empStatus = ''; }
-    for (const id of ['fw-school', 'fw-board', 'fw-boardother']) { const el = document.getElementById(id); if (el) el.hidden = grad; }
+    const noBoard = grad || grade === 'Undergraduate';
+    for (const id of ['fw-board', 'fw-boardother']) { const el = document.getElementById(id); if (el) el.hidden = noBoard; }
+    for (const id of ['fw-school']) { const el = document.getElementById(id); if (el) el.hidden = grad || grade === 'Undergraduate'; }
     paintEnjoyChips();
+    paintExamChips();
+    syncJobBlock();
+    const young = ['Class 8', 'Class 9', 'Class 10'].includes(grade);
+    $('#career-list').innerHTML = (young ? CAREER_AREAS : CAREERS).map(n => `<option value="${n}">`).join('');
+    const s4 = document.querySelector('#steps li[data-s="4"]');
+    if (s4) s4.style.display = abroadApplicable() ? '' : 'none';
+    const last = abroadApplicable() ? 4 : 3;
+    window.cpLastStep = last;
+    if (regStep > last) { regStep = last; showPane(); }
+  };
+  const paintExamChips = () => {
+    const grade = ($('#r-grade') || {}).value || '';
+    const list = examOptions(grade);
+    reg.exams = reg.exams.filter(s => list.includes(s));
+    $('#exam-chips').innerHTML = list.map(s =>
+      `<button type="button" class="chip${reg.exams.includes(s) ? ' on' : ''}" data-v="${s}">${s}</button>`).join('');
   };
   const paintEnjoyChips = () => {
     const grade = ($('#r-grade') || {}).value || '';
@@ -877,7 +916,23 @@ function renderRegister() {
   }));
   paintSubjChips();
   paintEnjoyChips();
+  paintExamChips();
   paintLocation();
+  $('#r-goal').addEventListener('change', () => {
+    $('#fw-goalother').hidden = $('#r-goal').value !== 'Other';
+    syncJobBlock();
+  });
+  const syncJobBlock = () => {
+    const isJob = ($('#r-goal') || {}).value === JOB_GOAL;
+    $('#job-block').hidden = !isJob;
+    if (!isJob) { reg.jobStatus = ''; return; }
+    const gradEmp = ($('#r-grade') || {}).value === 'Graduate' && reg.empStatus;
+    if (gradEmp) reg.jobStatus = reg.empStatus;
+    $('#fw-jobstatus').hidden = !!gradEmp;
+    if (gradEmp && reg.empStatus === 'Fresher' && !$('#r-jobfield').value && $('#r-empfield').value)
+      $('#r-jobfield').value = $('#r-empfield').value;
+    [...$('#job-pills').children].forEach(x => x.classList.toggle('on', x.dataset.v === reg.jobStatus));
+  };
   $('#r-nationality').addEventListener('change', paintLocation);
   $('#r-grade').addEventListener('change', () => { refreshEduVisibility(); });
   $('#r-stream').addEventListener('change', () => { paintSubjChips(); paintEnjoyChips(); });
@@ -893,11 +948,27 @@ function renderRegister() {
   customChipAdder('#country-chips', '#country-other', '#country-add', 'countries');
   customChipAdder('#uni-chips', '#uni-other', '#uni-add', 'universities');
   singlePills('#mode-pills', 'mode');
+  singlePills('#job-pills', 'jobStatus');
+  const regActivities = () => {
+    const base = reg.activities.filter(a => a !== 'Other');
+    if (reg.activities.includes('Other')) {
+      const o = ($('#activity-other') || {}).value?.trim() || '';
+      if (o) base.push(o);
+    }
+    return base;
+  };
+  $('#activity-chips').addEventListener('click', () => {
+    const on = [...$('#activity-chips').querySelectorAll('.on')].some(x => x.dataset.v === 'Other');
+    $('#activity-other-wrap').hidden = !on;
+  });
   singlePills('#emp-pills', 'empStatus', () => {
     const w = reg.empStatus === 'Working';
     $('#fw-empwork').hidden = !w;
     $('#fw-empfield').hidden = !reg.empStatus;
     $('#empfield-label').textContent = w ? 'Current field / role' : 'Which field would you like to work in?';
+    if (w && !$('#r-goal').value) $('#r-goal').value = 'Looking for a job';
+    $('#fw-goalother').hidden = $('#r-goal').value !== 'Other';
+    syncJobBlock();
   });
   singlePills('#abroad-pills', 'abroad', () => {
     $('#abroad-detail').hidden = reg.abroad === 'No';
@@ -918,8 +989,9 @@ function renderRegister() {
   refreshEduVisibility();
   $('#wiz-back').addEventListener('click', () => { if (regStep > 1) { regStep--; showPane(); } });
   $('#wiz-next').addEventListener('click', async () => {
-    if (regStep < 4) { if (vStep(regStep)) { regStep++; showPane(); } return; }
-    if (!vStep(4)) return;
+    const last = abroadApplicable() ? 4 : 3;
+    if (regStep < last) { if (vStep(regStep)) { regStep++; showPane(); } return; }
+    if (!vStep(last)) return;
     openReview();
   });
 
@@ -930,6 +1002,7 @@ function regSummary() {
   const g = id => ($('#r-' + id) || {}).value || '';
   const indian = isIndian();
   const grad = g('grade') === 'Graduate';
+  const ug = g('grade') === 'Undergraduate';
   const eng = reg.englishNeeded === 'Yes' ? `Yes (${g('engtype')}: ${g('engscore')})` : reg.englishNeeded;
   const rows = [
     ['Full name', g('name')], ['Email', g('email')], ['Phone', regPhone()],
@@ -937,10 +1010,11 @@ function regSummary() {
     ['Grade', g('grade')],
   ];
   if (g('grade') === 'Class 11') rows.push(['Stream', g('stream') || '—']);
-  if (!grad) {
+  if (!grad && !ug) {
     rows.push(['School / College', g('school')],
       ['Board', g('board') === 'Other' ? g('boardother') : g('board')]);
   }
+  if (ug) rows.push(['Degree', g('degree')], ['Field of study', g('studyfield')]);
   if (indian) rows.push(['State', g('state')], ['District', g('district')]);
   else rows.push(['State / Province', g('state')], ['City', g('city')]);
   rows.push(
@@ -952,19 +1026,26 @@ function regSummary() {
     else if (reg.empStatus === 'Fresher') rows.push(['Desired field', g('empfield')]);
   }
   rows.push(
-    ['Primary goal', g('goal')], ['Counselling mode', reg.mode],
+    ['Primary goal', g('goal') === 'Other' ? g('goalother') : g('goal')], ['Counselling mode', reg.mode],
+  );
+  if (g('goal') === JOB_GOAL) {
+    rows.push(['Job status', reg.jobStatus || '—'], ['Job field', g('jobfield') || '—'], ['Job type', g('jobtype') || '—']);
+  }
+  rows.push(
     ['Exams', reg.exams.join(', ') || '—'],
     ['Mock tests', $('#r-mock').checked ? 'Yes, notify me' : 'Not now'],
     ['Career', reg.undecided ? "Haven't decided yet" : g('career')],
-    ['Activities', reg.activities.join(', ')],
+    ['Activities', regActivities().join(', ')],
     ['Future note', g('future') || '—'],
+  );
+  if (SCHOOL_GRADES.includes(g('grade'))) rows.push(
     ['Study abroad', reg.abroad],
     ['Countries', reg.countries.join(', ') || '—'], ['Universities', reg.universities.join(', ') || '—'],
     ['Budget', g('budget') || '—'], ['Funds', g('funds') || '—'],
     ['English test', eng || '—'],
     ['Intake', g('intake') || '—'], ['Start year', g('year') || '—'],
-    ['Heard via', g('hear')],
   );
+  rows.push(['Heard via', g('hear')]);
   return rows;
 }
 function openReview() {
@@ -992,8 +1073,10 @@ async function doRegister() {
       password: $('#r-pass').value, confirm: $('#r-confirm').value, grade: g('grade'), stream: g('stream'),
       school: g('school'), board: g('board'), boardOther: g('boardother'), state: g('state'),
       district: g('district'), city: g('city'), subjects: reg.subjects, enjoySubjects: reg.enjoySubjects,
-      goal: g('goal'), mode: reg.mode, exams: reg.exams, mockTests: $('#r-mock').checked,
-      career: g('career'), undecided: reg.undecided, activities: reg.activities, futureNote: g('future'),
+      goal: g('goal'), goalOther: g('goalother'), mode: reg.mode, exams: reg.exams, mockTests: $('#r-mock').checked,
+      career: g('career'), undecided: reg.undecided, activities: regActivities(), futureNote: g('future'),
+      degree: g('degree'), studyField: g('studyfield'),
+      jobStatus: reg.jobStatus, jobField: g('jobfield'), jobType: g('jobtype'),
       abroad: reg.abroad, countries: reg.countries, universities: reg.universities,
       budget: g('budget'), funds: g('funds'), englishNeeded: reg.englishNeeded,
       engType: g('engtype'), engScore: g('engscore'), intake: g('intake'), startYear: g('year'),
@@ -1029,12 +1112,12 @@ function clearPaneErrs(n) {
 function regFail(field, msg) {
   const map = { name:1, email:1, phone:1, dob:1, nationality:1, gender:1, pass:1, confirm:1,
     grade:2, stream:2, school:2, board:2, boardother:2, state:2, district:2, city:2, subjects:2, enjoy:2,
-    empstat:2, empwork:2, empfield:2,
-    goal:3, mode:3, career:3, activities:3,
-    abroad:4, countries:4, budget:4, funds:4, engneed:4, engtype:4, engscore:4, hear:4, consent:4 };
+    empstat:2, empwork:2, empfield:2, degree:2, studyfield:2,
+    goal:3, goalother:3, jobstatus:3, jobfield:3, jobtype:3, mode:3, career:3, activities:3,
+    abroad:4, countries:4, budget:4, funds:4, engneed:4, engtype:4, engscore:4, hear:3, consent:3 };
   const step = map[field] || 1;
   if (step !== regStep) { regStep = step; showPane(); }
-  if (['subjects','mode','abroad','engneed','countries','name','email','phone','dob','nationality','gender','grade','stream','school','board','boardother','state','district','city','goal','hear','career','enjoy','activities','budget','funds','engtype','engscore','empstat','empwork','empfield'].includes(field)) paneErr(field, msg);
+  if (['subjects','mode','abroad','engneed','countries','name','email','phone','dob','nationality','gender','grade','stream','school','board','boardother','state','district','city','goal','goalother','jobstatus','jobfield','jobtype','hear','career','enjoy','activities','budget','funds','engtype','engscore','empstat','empwork','empfield','degree','studyfield'].includes(field)) paneErr(field, msg);
   else { const e = $('#reg-err'); e.textContent = msg; e.hidden = false; }
 }
 function engScoreOk() {
@@ -1063,11 +1146,14 @@ function vStep(n) {
   } else if (n === 2) {
     const indian = isIndian();
     const grad = g('grade') === 'Graduate';
+    const ug = g('grade') === 'Undergraduate';
     need(!g('grade'), 'grade', 'Select your grade (Class 8 and up).');
     if (ok && grade11) need(!g('stream'), 'stream', 'Select your stream.');
-    if (ok && !grad) need(g('school').length < 2, 'school', 'Enter your school / college.');
-    if (ok && !grad) need(!g('board'), 'board', 'Select your syllabus / board.');
-    if (ok && !grad && g('board') === 'Other') need(g('boardother').length < 2, 'boardother', 'Name your board / curriculum.');
+    if (ok && !grad && !ug) need(g('school').length < 2, 'school', 'Enter your school / college.');
+    if (ok && !grad && !ug) need(!g('board'), 'board', 'Select your syllabus / board.');
+    if (ok && !grad && !ug && g('board') === 'Other') need(g('boardother').length < 2, 'boardother', 'Name your board / curriculum.');
+    if (ok && ug) need(g('degree').length < 2, 'degree', 'Tell us your degree / course.');
+    if (ok && ug) need(g('studyfield').length < 2, 'studyfield', 'Tell us your field of study.');
     if (ok && indian) need(!g('state'), 'state', 'Select your state.');
     if (ok && indian) need(g('district').length < 2, 'district', 'Enter your district.');
     if (ok && !indian) need(g('state').length < 2, 'state', 'Enter your state / province.');
@@ -1080,10 +1166,20 @@ function vStep(n) {
       reg.empStatus === 'Working' ? 'Tell us your current field / role.' : 'Tell us which field you want.');
   } else if (n === 3) {
     need(!g('goal'), 'goal', 'Choose your primary goal.');
-    if (ok) need(!reg.mode, 'mode', 'Choose a counselling mode.');
+    if (ok && g('goal') === 'Other') need(g('goalother').length < 2, 'goalother', 'Describe your goal in your words.');
+    if (ok && g('goal') === JOB_GOAL) {
+      const gradJob = g('grade') === 'Graduate' && reg.empStatus;
+      if (ok && !gradJob) need(!reg.jobStatus, 'jobstatus', 'Tell us whether you are a fresher or working.');
+      if (ok) need(g('jobfield').length < 2, 'jobfield', 'Tell us the field / role you are looking for.');
+      if (ok) need(!g('jobtype'), 'jobtype', 'Pick the type of job that interests you.');
+    }
+    if (ok && !reg.mode) need(!reg.mode, 'mode', 'Choose a counselling mode.');
     if (ok && !reg.undecided) need(g('career').length < 2, 'career', 'Tell us your career interest — or tick undecided.');
-    if (ok) need(!reg.activities.length, 'activities', 'Pick at least one activity you enjoy.');
+    if (ok) need(!regActivities().length, 'activities', 'Pick at least one activity you enjoy.');
+    if (ok) need(!g('hear'), 'hear', 'Tell us how you found us.');
+    if (ok && !$('#r-consent').checked) need(true, 'consent', 'Please accept the consent to continue.');
   } else {
+    if (!SCHOOL_GRADES.includes(g('grade'))) return true;
     need(!reg.abroad, 'abroad', 'Tell us about your study-abroad plans.');
     const ab = reg.abroad !== 'No';
     if (ok && ab) need(!reg.countries.length, 'countries', 'Pick at least one country — or add your own.');
@@ -1092,8 +1188,6 @@ function vStep(n) {
     if (ok && ab) need(!reg.englishNeeded, 'engneed', 'Say whether you need an English test.');
     if (ok && ab && reg.englishNeeded === 'Yes') need(!g('engtype'), 'engtype', 'Pick your English exam type.');
     if (ok && ab && reg.englishNeeded === 'Yes') need(!engScoreOk(), 'engscore', 'Enter a valid score for that exam.');
-    if (ok) need(!g('hear'), 'hear', 'Tell us how you found us.');
-    if (ok && !$('#r-consent').checked) need(true, 'consent', 'Please accept the consent to continue.');
   }
   return ok;
 }
@@ -1109,7 +1203,8 @@ function showPane() {
     li.classList.toggle('done', s < regStep);
   });
   $('#wiz-back').hidden = regStep === 1;
-  $('#wiz-next').innerHTML = regStep === 4
+  const lastStep = window.cpLastStep || 4;
+  $('#wiz-next').innerHTML = regStep === lastStep
     ? 'Review & create account <i data-lucide="user-plus"></i>'
     : 'Continue <i data-lucide="arrow-right"></i>';
   icons();
@@ -1738,12 +1833,15 @@ function careerProfile() {
   const ab = p.abroad && p.abroad !== 'No';
   const g11 = p.grade === 'Class 11';
   const grad = p.grade === 'Graduate';
+  const ug = p.grade === 'Undergraduate';
+  const schoolGrades = ['Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12'].includes(p.grade);
   const items = [
     ['Full name', !!p.name], ['Email', !!p.email], ['Phone', !!p.phone],
     ['Date of birth', !!p.dob], ['Gender', !!p.gender], ['Nationality', !!p.nationality],
     ['Grade', !!p.grade],
   ];
-  if (!grad) items.push(['School', !!p.school], ['Board', !!p.board]);
+  if (!grad && !ug) items.push(['School', !!p.school], ['Board', !!p.board]);
+  if (ug) items.push(['Degree', !!p.degree], ['Field of study', !!p.studyField]);
   const pIndian = (p.nationality || '').trim().toLowerCase() === 'indian';
   items.push(['State', !!p.state]);
   if (pIndian) items.push(['District', !!p.district]);
@@ -1752,13 +1850,15 @@ function careerProfile() {
     ['Enjoys', (p.enjoySubjects || []).length > 0],
     ['Goal', !!p.goal], ['Mode', !!p.mode],
     ['Career', !!(p.career || p.undecided)], ['Activities', (p.activities || []).length > 0],
-    ['Study abroad', !!p.abroad],
   );
-  if (g11) items.push(['Stream', !!p.stream], ['Subjects', (p.subjects || []).length > 0]);
-  if (ab) {
-    items.push(['Countries', (p.countries || []).length > 0], ['Budget', !!p.budget],
-      ['Funds', !!p.funds], ['English test', !!p.englishNeeded]);
-    if (p.englishNeeded === 'Yes') items.push(['English score', p.engScore != null]);
+  if (p.goal === JOB_GOAL) items.push(['Job plan', !!(p.jobField && p.jobType)]);
+  if (schoolGrades) {
+    items.push(['Study abroad', !!p.abroad]);
+    if (ab) {
+      items.push(['Countries', (p.countries || []).length > 0], ['Budget', !!p.budget],
+        ['Funds', !!p.funds], ['English test', !!p.englishNeeded]);
+      if (p.englishNeeded === 'Yes') items.push(['English score', p.engScore != null]);
+    }
   }
   const done = items.filter(([, f]) => f).length;
   return { pct: Math.round(done / items.length * 100),
