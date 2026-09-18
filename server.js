@@ -276,9 +276,9 @@ function validateReg(b) {
   if (b.password !== b.confirm) return bad('Passwords do not match.', 'confirm');
   if (!GRADES_OK.includes(s(b.grade))) return bad('Select your grade (Class 8 and up).', 'grade');
   if (grade11 && !STREAMS_OK.includes(s(b.stream))) return bad('Select your stream.', 'stream');
-  if (s(b.school).length < 2) return bad('Enter your school / college.', 'school');
-  if (!BOARDS_OK.includes(s(b.board))) return bad('Select your syllabus / board.', 'board');
-  if (s(b.board) === 'Other' && s(b.boardOther).length < 2) return bad('Name your board / curriculum.', 'boardother');
+  if (!grad && s(b.school).length < 2) return bad('Enter your school / college.', 'school');
+  if (!grad && !BOARDS_OK.includes(s(b.board))) return bad('Select your syllabus / board.', 'board');
+  if (!grad && s(b.board) === 'Other' && s(b.boardOther).length < 2) return bad('Name your board / curriculum.', 'boardother');
   if (!nonEmpty(b.state) || (indian && !IN_STATES_OK.includes(s(b.state)))) return bad(indian ? 'Select your state.' : 'Enter your state / province.', 'state');
   if (indian && s(b.district).length < 2) return bad('Enter your district.', 'district');
   if (!indian && s(b.city).length < 2) return bad('Enter your city.', 'city');
@@ -540,7 +540,9 @@ async function api(req, res, p) {
         counsellorId: cid, status: 'new',
         profile: { phone: String(b.phone).trim(), dob: b.dob, gender: b.gender, nationality: String(b.nationality || '').trim(),
                    grade: b.grade, stream: b.grade === 'Class 11' ? b.stream : null,
-                   school: b.school.trim(), board: b.board, boardOther: b.board === 'Other' ? String(b.boardOther || '').trim() : null,
+                   school: String(b.school || '').trim() || null,
+                   board: String(b.board || '').trim() || null,
+                   boardOther: b.board === 'Other' ? String(b.boardOther || '').trim() : null,
                    state: String(b.state || '').trim(), district: String(b.district || '').trim(),
                    city: (String(b.city || '').trim() || String(b.district || '').trim()),
                    subjects: b.grade === 'Class 11' ? b.subjects.map(String) : [], enjoySubjects: (b.enjoySubjects || []).map(String),

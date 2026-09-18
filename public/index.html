@@ -822,6 +822,7 @@ function renderRegister() {
     const grad = grade === 'Graduate';
     $('#employ-block').hidden = !grad;
     if (!grad) { reg.empStatus = ''; }
+    for (const id of ['fw-school', 'fw-board', 'fw-boardother']) { const el = document.getElementById(id); if (el) el.hidden = grad; }
     paintEnjoyChips();
   };
   const paintEnjoyChips = () => {
@@ -933,9 +934,13 @@ function regSummary() {
   const rows = [
     ['Full name', g('name')], ['Email', g('email')], ['Phone', regPhone()],
     ['Date of birth', g('dob')], ['Nationality', g('nationality')], ['Gender', g('gender')],
-    ['Grade', g('grade')], ['Stream', g('stream') || '—'], ['School / College', g('school')],
-    ['Board', g('board') === 'Other' ? g('boardother') : g('board')],
+    ['Grade', g('grade')],
   ];
+  if (g('grade') === 'Class 11') rows.push(['Stream', g('stream') || '—']);
+  if (!grad) {
+    rows.push(['School / College', g('school')],
+      ['Board', g('board') === 'Other' ? g('boardother') : g('board')]);
+  }
   if (indian) rows.push(['State', g('state')], ['District', g('district')]);
   else rows.push(['State / Province', g('state')], ['City', g('city')]);
   rows.push(
@@ -1060,9 +1065,9 @@ function vStep(n) {
     const grad = g('grade') === 'Graduate';
     need(!g('grade'), 'grade', 'Select your grade (Class 8 and up).');
     if (ok && grade11) need(!g('stream'), 'stream', 'Select your stream.');
-    if (ok) need(g('school').length < 2, 'school', 'Enter your school / college.');
-    if (ok) need(!g('board'), 'board', 'Select your syllabus / board.');
-    if (ok && g('board') === 'Other') need(g('boardother').length < 2, 'boardother', 'Name your board / curriculum.');
+    if (ok && !grad) need(g('school').length < 2, 'school', 'Enter your school / college.');
+    if (ok && !grad) need(!g('board'), 'board', 'Select your syllabus / board.');
+    if (ok && !grad && g('board') === 'Other') need(g('boardother').length < 2, 'boardother', 'Name your board / curriculum.');
     if (ok && indian) need(!g('state'), 'state', 'Select your state.');
     if (ok && indian) need(g('district').length < 2, 'district', 'Enter your district.');
     if (ok && !indian) need(g('state').length < 2, 'state', 'Enter your state / province.');
@@ -1732,16 +1737,23 @@ function careerProfile() {
   const p = dash.profile || {};
   const ab = p.abroad && p.abroad !== 'No';
   const g11 = p.grade === 'Class 11';
+  const grad = p.grade === 'Graduate';
   const items = [
     ['Full name', !!p.name], ['Email', !!p.email], ['Phone', !!p.phone],
     ['Date of birth', !!p.dob], ['Gender', !!p.gender], ['Nationality', !!p.nationality],
-    ['Grade', !!p.grade], ['School', !!p.school], ['Board', !!p.board],
-    ['State', !!p.state], ['District', !!p.district], ['City', !!p.city],
+    ['Grade', !!p.grade],
+  ];
+  if (!grad) items.push(['School', !!p.school], ['Board', !!p.board]);
+  const pIndian = (p.nationality || '').trim().toLowerCase() === 'indian';
+  items.push(['State', !!p.state]);
+  if (pIndian) items.push(['District', !!p.district]);
+  items.push(['City', !!p.city]);
+  items.push(
     ['Enjoys', (p.enjoySubjects || []).length > 0],
     ['Goal', !!p.goal], ['Mode', !!p.mode],
     ['Career', !!(p.career || p.undecided)], ['Activities', (p.activities || []).length > 0],
     ['Study abroad', !!p.abroad],
-  ];
+  );
   if (g11) items.push(['Stream', !!p.stream], ['Subjects', (p.subjects || []).length > 0]);
   if (ab) {
     items.push(['Countries', (p.countries || []).length > 0], ['Budget', !!p.budget],
