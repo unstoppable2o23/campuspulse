@@ -630,7 +630,7 @@ const MODES = ['Online','In-person','Either'];
 const HEARD = ['Instagram','YouTube','Friend / Family','School','Google Search','Other'];
 const BOARDS = ['CBSE','ICSE','State Board','IB','Cambridge (IGCSE / A-Levels)','NIOS','Other'];
 const IN_STATES = ['Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhattisgarh','Delhi','Goa','Gujarat','Haryana','Himachal Pradesh','Jharkhand','Karnataka','Kerala','Madhya Pradesh','Maharashtra','Manipur','Meghalaya','Mizoram','Nagaland','Odisha','Punjab','Rajasthan','Sikkim','Tamil Nadu','Telangana','Tripura','Uttar Pradesh','Uttarakhand','West Bengal','Jammu & Kashmir','Ladakh','Chandigarh','Puducherry','Andaman & Nicobar','Lakshadweep','Dadra & Nagar Haveli and Daman & Diu'];
-const PHONE_CODES = ['+91','+1','+44','+61','+65','+971','+966','+974','+965','+973','+968','+49','+33','+31','+353','+64','+880','+977','+94','+60'];
+const PHONE_CODES = [['+91','India'],['+1','USA / Canada'],['+44','UK'],['+61','Australia'],['+65','Singapore'],['+971','UAE'],['+966','Saudi Arabia'],['+974','Qatar'],['+965','Kuwait'],['+973','Bahrain'],['+968','Oman'],['+49','Germany'],['+33','France'],['+31','Netherlands'],['+353','Ireland'],['+64','New Zealand'],['+880','Bangladesh'],['+977','Nepal'],['+94','Sri Lanka'],['+60','Malaysia']];
 const NATIONALITIES = ['Indian','American','British','Canadian','Australian','Emirati','Saudi','Qatari','Kuwaiti','Bangladeshi','Nepali','Sri Lankan','Malaysian','Singaporean','German','French','Dutch','Irish','New Zealander','Other'];
 const EXAMS_OPT = ['SAT','ACT','JEE Main','JEE Advanced','NEET','AP (Advanced Placement)','A-Levels','IB (International Baccalaureate)','CUET','TOEFL','IELTS','PTE','GRE','GMAT','OTHER'];
 const EXAMS_PG = ['GRE','GMAT','CAT','GATE','TOEFL','IELTS','PTE','Duolingo English Test','OTHER'];
@@ -700,7 +700,7 @@ function renderRegister() {
           ${Fld('name', 'Full name', 'text', 'e.g. Aarav Sharma')}
           ${Fld('email', 'Email', 'email', 'you@example.com')}
           <div class="field" id="fw-phone"><label for="r-phone">Phone (with country code)</label>
-            <div style="display:flex;gap:10px"><select id="r-phonecode" style="max-width:118px;flex:none">${PHONE_CODES.map(c => `<option${c === '+91' ? ' selected' : ''}>${c}</option>`).join('')}</select>
+            <div style="display:flex;gap:10px"><select id="r-phonecode" style="max-width:150px;flex:none">${PHONE_CODES.map(([c, n]) => `<option value="${c}"${c === '+91' ? ' selected' : ''}>${c} (${n})</option>`).join('')}</select>
             <input id="r-phone" type="tel" placeholder="Mobile number" style="flex:1;min-width:0"></div><p class="err-msg"></p></div>
           <div class="frow">
             ${Fld('dob', 'Date of birth', 'date', '', `max="${todayISO()}"`)}
