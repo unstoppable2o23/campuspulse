@@ -243,82 +243,131 @@ function body(req) {
     req.on('end', () => { try { resolve(JSON.parse(d || '{}')); } catch { resolve({}); } });
   });
 }
-const GRADES_OK = ['Class 8','Class 9','Class 10','Class 11','Class 12','Dropper','Undergraduate','Graduate'];
-const STREAMS_OK = ['Science','Commerce','Arts / Humanities'];
-const BOARDS_OK = ['CBSE','ICSE','State Board','IB','Cambridge (IGCSE / A-Levels)','NIOS','Other'];
-const ABROAD_OK = ['Yes','No','Not sure yet'];
-const SCHOOL_GRADES_OK = ['Class 8','Class 9','Class 10','Class 11','Class 12'];
-const GOALS_OK = ['Prepare for higher education','Prepare for competitive exams','Looking for a job','Build career skills','Explore career options','Start a business','Study abroad','Improve academic performance','Other'];
-const JOB_GOAL_OK = 'Looking for a job';
-const JOB_TYPES_OK = ['Full-time','Part-time','Internship','Freelance','Remote'];
-const IN_STATES_OK = ['Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhattisgarh','Delhi','Goa','Gujarat','Haryana','Himachal Pradesh','Jharkhand','Karnataka','Kerala','Madhya Pradesh','Maharashtra','Manipur','Meghalaya','Mizoram','Nagaland','Odisha','Punjab','Rajasthan','Sikkim','Tamil Nadu','Telangana','Tripura','Uttar Pradesh','Uttarakhand','West Bengal','Jammu & Kashmir','Ladakh','Chandigarh','Puducherry','Andaman & Nicobar','Lakshadweep','Dadra & Nagar Haveli and Daman & Diu'];
-const ENG_SCALES = { 'IELTS': [0, 9], 'TOEFL iBT': [0, 120], 'PTE Academic': [10, 90], 'Duolingo English Test': [10, 160] };
+/* ── registration form model (backend mirror of the wizard — frontend untouched) ──
+   RULES order is the contract: first failure wins and its `field` drives the wizard step. */
+const REG = {
+  grades: ['Class 8','Class 9','Class 10','Class 11','Class 12','Dropper','Undergraduate','Graduate'],
+  streams: ['Science','Commerce','Arts / Humanities'],
+  boards: ['CBSE','ICSE','State Board','IB','Cambridge (IGCSE / A-Levels)','NIOS','Other'],
+  abroads: ['Yes','No','Not sure yet'],
+  schoolGrades: ['Class 8','Class 9','Class 10','Class 11','Class 12'],
+  goals: ['Prepare for higher education','Prepare for competitive exams','Looking for a job','Build career skills','Explore career options','Start a business','Study abroad','Improve academic performance','Other'],
+  jobGoal: 'Looking for a job',
+  jobTypes: ['Full-time','Part-time','Internship','Freelance','Remote'],
+  empStatuses: ['Working','Fresher'],
+  states: ['Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhattisgarh','Delhi','Goa','Gujarat','Haryana','Himachal Pradesh','Jharkhand','Karnataka','Kerala','Madhya Pradesh','Maharashtra','Manipur','Meghalaya','Mizoram','Nagaland','Odisha','Punjab','Rajasthan','Sikkim','Tamil Nadu','Telangana','Tripura','Uttar Pradesh','Uttarakhand','West Bengal','Jammu & Kashmir','Ladakh','Chandigarh','Puducherry','Andaman & Nicobar','Lakshadweep','Dadra & Nagar Haveli and Daman & Diu'],
+  engScales: { 'IELTS': [0, 9], 'TOEFL iBT': [0, 120], 'PTE Academic': [10, 90], 'Duolingo English Test': [10, 160] },
+  minAge: 10, maxAge: 35,
+};
+const GRADES_OK = REG.grades, STREAMS_OK = REG.streams, BOARDS_OK = REG.boards,
+  ABROAD_OK = REG.abroads, SCHOOL_GRADES_OK = REG.schoolGrades, GOALS_OK = REG.goals,
+  JOB_GOAL_OK = REG.jobGoal, JOB_TYPES_OK = REG.jobTypes, IN_STATES_OK = REG.states,
+  ENG_SCALES = REG.engScales;
+
+const rstr = v => String(v || '').trim();
+const rdigits = v => (String(v).match(/\d/g) || []).length;
+function rageOfDob(iso) {
+  const dob = new Date(rstr(iso) + 'T00:00:00'), now = new Date();
+  if (isNaN(dob)) return null;
+  let age = now.getFullYear() - dob.getFullYear();
+  if (now.getMonth() < dob.getMonth() || (now.getMonth() === dob.getMonth() && now.getDate() < dob.getDate())) age--;
+  return age;
+}
+function regContext(b) {
+  const grade = rstr(b.grade);
+  const grade11 = grade === 'Class 11', grad = grade === 'Graduate', ug = grade === 'Undergraduate';
+  const abroad = REG.abroads.includes(b.abroad) ? b.abroad : '';
+  const eng = REG.engScales[b.engType];
+  return {
+    grade, grade11, grad, ug, higher: grad || ug,
+    schoolGrades: REG.schoolGrades.includes(grade),
+    indian: rstr(b.nationality).toLowerCase() === 'indian',
+    abroad, ab: abroad !== 'No', eng, engScore: parseFloat(b.engScore),
+    age: rageOfDob(b.dob), digits: rdigits(b.phone),
+    wantJob: b.goal === REG.jobGoal,
+    gradEmp: grad && REG.empStatuses.includes(b.employmentStatus),
+  };
+}
+const REG_RULES = [
+  { field: 'name',        msg: 'Please enter your full name.',                                    test: (b, c) => !rstr(b.name) || rstr(b.name).length < 3 },
+  { field: 'email',       msg: 'Enter a valid email address.',                                    test: (b) => !/^\S+@\S+\.\S+$/.test(rstr(b.email)) },
+  { field: 'phone',       msg: 'Enter a valid phone number with country code (10–15 digits).',   test: (b, c) => !/^[+()\-\s\d]{10,18}$/.test(rstr(b.phone)) || c.digits < 10 || c.digits > 15 },
+  { field: 'dob',         msg: 'Pick your date of birth.',                                        test: (b) => !b.dob },
+  { field: 'dob',         msg: `Students must be ${REG.minAge}–${REG.maxAge} years old.`,         test: (b, c) => c.age === null || c.age < REG.minAge || c.age > REG.maxAge },
+  { field: 'nationality', msg: 'Tell us your nationality.',                                       test: (b) => rstr(b.nationality).length < 2 },
+  { field: 'gender',      msg: 'Select an option.',                                               test: (b) => !b.gender },
+  { field: 'password',    msg: 'Password needs at least 6 characters.',                           test: (b) => String(b.password || '').length < 6 },
+  { field: 'confirm',     msg: 'Passwords do not match.',                                         test: (b) => b.password !== b.confirm },
+  { field: 'grade',       msg: 'Select your grade (Class 8 and up).',                             test: (b) => !REG.grades.includes(rstr(b.grade)) },
+  { field: 'stream',      msg: 'Select your stream.',                                             test: (b, c) => c.grade11 && !REG.streams.includes(rstr(b.stream)) },
+  { field: 'school',      msg: 'Enter your school / college.',                                    test: (b, c) => !c.higher && rstr(b.school).length < 2 },
+  { field: 'board',       msg: 'Select your syllabus / board.',                                   test: (b, c) => !c.higher && !REG.boards.includes(rstr(b.board)) },
+  { field: 'boardother',  msg: 'Name your board / curriculum.',                                   test: (b, c) => !c.higher && rstr(b.board) === 'Other' && rstr(b.boardOther).length < 2 },
+  { field: 'degree',      msg: 'Tell us your degree / course.',                                   test: (b, c) => c.ug && rstr(b.degree).length < 2 },
+  { field: 'studyfield',  msg: 'Tell us your field of study.',                                    test: (b, c) => c.ug && rstr(b.studyField).length < 2 },
+  { field: 'state',       msg: 'Select your state.',                                              test: (b, c) => c.indian && !REG.states.includes(rstr(b.state)) },
+  { field: 'state',       msg: 'Enter your state / province.',                                    test: (b, c) => !c.indian && rstr(b.state).length < 2 },
+  { field: 'district',    msg: 'Enter your district.',                                            test: (b, c) => c.indian && rstr(b.district).length < 2 },
+  { field: 'city',        msg: 'Enter your city.',                                                test: (b, c) => !c.indian && rstr(b.city).length < 2 },
+  { field: 'subjects',    msg: 'Pick at least one subject.',                                      test: (b, c) => c.grade11 && (!Array.isArray(b.subjects) || !b.subjects.length) },
+  { field: 'enjoy',       msg: 'Pick at least one subject you enjoy.',                            test: (b) => !Array.isArray(b.enjoySubjects) || !b.enjoySubjects.length },
+  { field: 'empstat',     msg: 'Tell us whether you are working or a fresher.',                   test: (b, c) => c.grad && !REG.empStatuses.includes(b.employmentStatus) },
+  { field: 'empwork',     msg: 'Tell us where you work.',                                         test: (b, c) => c.grad && b.employmentStatus === 'Working' && rstr(b.workplace).length < 2 },
+  { field: 'empfield',    msg: 'Tell us your current field / role.',                              test: (b, c) => c.grad && b.employmentStatus === 'Working' && rstr(b.workField).length < 2 },
+  { field: 'empfield',    msg: 'Tell us which field you want.',                                   test: (b, c) => c.grad && b.employmentStatus !== 'Working' && rstr(b.workField).length < 2 },
+  { field: 'goal',        msg: 'Choose your primary goal.',                                       test: (b) => !REG.goals.includes(b.goal) },
+  { field: 'goalother',   msg: 'Describe your goal in your words.',                               test: (b) => b.goal === 'Other' && rstr(b.goalOther).length < 2 },
+  { field: 'jobstatus',   msg: 'Tell us whether you are a fresher or working.',                   test: (b, c) => c.wantJob && !c.gradEmp && !REG.empStatuses.includes(b.jobStatus) },
+  { field: 'jobfield',    msg: 'Tell us the field / role you are looking for.',                   test: (b, c) => c.wantJob && rstr(b.jobField).length < 2 },
+  { field: 'jobtype',     msg: 'Pick the type of job that interests you.',                        test: (b, c) => c.wantJob && !REG.jobTypes.includes(b.jobType) },
+  { field: 'mode',        msg: 'Choose a counselling mode.',                                      test: (b) => !b.mode },
+  { field: 'career',      msg: 'Tell us your career interest — or tick undecided.',               test: (b) => !b.undecided && rstr(b.career).length < 2 },
+  { field: 'activities',  msg: 'Pick at least one activity you enjoy.',                           test: (b) => !Array.isArray(b.activities) || !b.activities.length },
+  { field: 'abroad',      msg: 'Tell us about your study-abroad plans.',                          test: (b, c) => c.schoolGrades && !c.abroad },
+  { field: 'countries',   msg: 'Pick at least one country — or add your own.',                    test: (b, c) => c.schoolGrades && c.ab && (!Array.isArray(b.countries) || !b.countries.length) },
+  { field: 'budget',      msg: 'Choose a tuition budget band.',                                    test: (b, c) => c.schoolGrades && c.ab && !rstr(b.budget) },
+  { field: 'funds',       msg: 'Tell us your source of funds.',                                    test: (b, c) => c.schoolGrades && c.ab && !rstr(b.funds) },
+  { field: 'engneed',     msg: 'Say whether you need an English test.',                           test: (b, c) => c.schoolGrades && c.ab && !['Yes', 'No'].includes(b.englishNeeded) },
+  { field: 'engtype',     msg: 'Pick your English exam type.',                                    test: (b, c) => c.schoolGrades && c.ab && b.englishNeeded === 'Yes' && !c.eng },
+  { field: 'engscore',    msg: 'Enter a valid score for that exam.',                              test: (b, c) => c.schoolGrades && c.ab && b.englishNeeded === 'Yes' && !(isFinite(c.engScore) && c.engScore >= c.eng[0] && c.engScore <= c.eng[1]) },
+  { field: 'hear',        msg: 'Tell us how you found us.',                                       test: (b) => !b.hear },
+  { field: 'consent',     msg: 'Please accept the consent to continue.',                          test: (b) => !b.consent },
+];
 function validateReg(b) {
-  const bad = (msg, field) => ({ error: msg, field });
-  const s = v => String(v || '').trim();
-  const digits = (String(b.phone).match(/\d/g) || []).length;
-  const dob = new Date(s(b.dob) + 'T00:00:00');
-  const now = new Date();
-  let age = isNaN(dob) ? null : now.getFullYear() - dob.getFullYear();
-  if (age !== null && (now.getMonth() < dob.getMonth() || (now.getMonth() === dob.getMonth() && now.getDate() < dob.getDate()))) age--;
-  const grade11 = s(b.grade) === 'Class 11';
-  const grad = s(b.grade) === 'Graduate';
-  const ug = s(b.grade) === 'Undergraduate';
-  const higher = grad || ug;
-  const schoolGrades = SCHOOL_GRADES_OK.includes(s(b.grade));
-  const indian = s(b.nationality).toLowerCase() === 'indian';
-  const abroad = ABROAD_OK.includes(b.abroad) ? b.abroad : '';
-  const ab = abroad !== 'No';
-  const eng = ENG_SCALES[b.engType];
-  const engScore = parseFloat(b.engScore);
-  const nonEmpty = v => s(v).length > 0;
-  if ((!s(b.name) || s(b.name).length < 3)) return bad('Please enter your full name.', 'name');
-  if (!/^\S+@\S+\.\S+$/.test(s(b.email))) return bad('Enter a valid email address.', 'email');
-  if (!/^[+()\-\s\d]{10,18}$/.test(s(b.phone)) || digits < 10 || digits > 15) return bad('Enter a valid phone number with country code (10–15 digits).', 'phone');
-  if (!b.dob) return bad('Pick your date of birth.', 'dob');
-  if (age === null || age < 10 || age > 35) return bad('Students must be 10–35 years old.', 'dob');
-  if (s(b.nationality).length < 2) return bad('Tell us your nationality.', 'nationality');
-  if (!b.gender) return bad('Select an option.', 'gender');
-  if (String(b.password || '').length < 6) return bad('Password needs at least 6 characters.', 'password');
-  if (b.password !== b.confirm) return bad('Passwords do not match.', 'confirm');
-  if (!GRADES_OK.includes(s(b.grade))) return bad('Select your grade (Class 8 and up).', 'grade');
-  if (grade11 && !STREAMS_OK.includes(s(b.stream))) return bad('Select your stream.', 'stream');
-  if (!higher && s(b.school).length < 2) return bad('Enter your school / college.', 'school');
-  if (!higher && !BOARDS_OK.includes(s(b.board))) return bad('Select your syllabus / board.', 'board');
-  if (!higher && s(b.board) === 'Other' && s(b.boardOther).length < 2) return bad('Name your board / curriculum.', 'boardother');
-  if (ug && s(b.degree).length < 2) return bad('Tell us your degree / course.', 'degree');
-  if (ug && s(b.studyField).length < 2) return bad('Tell us your field of study.', 'studyfield');
-  if (!nonEmpty(b.state) || (indian && !IN_STATES_OK.includes(s(b.state)))) return bad(indian ? 'Select your state.' : 'Enter your state / province.', 'state');
-  if (indian && s(b.district).length < 2) return bad('Enter your district.', 'district');
-  if (!indian && s(b.city).length < 2) return bad('Enter your city.', 'city');
-  if (grade11 && (!Array.isArray(b.subjects) || !b.subjects.length)) return bad('Pick at least one subject.', 'subjects');
-  if (!Array.isArray(b.enjoySubjects) || !b.enjoySubjects.length) return bad('Pick at least one subject you enjoy.', 'enjoy');
-  if (grad && !['Working', 'Fresher'].includes(b.employmentStatus)) return bad('Tell us whether you are working or a fresher.', 'empstat');
-  if (grad && b.employmentStatus === 'Working' && s(b.workplace).length < 2) return bad('Tell us where you work.', 'empwork');
-  if (grad && s(b.workField).length < 2) return bad(b.employmentStatus === 'Working' ? 'Tell us your current field / role.' : 'Tell us which field you want.', 'empfield');
-  if (!b.goal || !GOALS_OK.includes(b.goal)) return bad('Choose your primary goal.', 'goal');
-  if (b.goal === 'Other' && s(b.goalOther).length < 2) return bad('Describe your goal in your words.', 'goalother');
-  const wantJob = b.goal === JOB_GOAL_OK;
-  const gradEmp = grad && ['Working', 'Fresher'].includes(b.employmentStatus);
-  if (wantJob && !gradEmp && !['Working', 'Fresher'].includes(b.jobStatus)) return bad('Tell us whether you are a fresher or working.', 'jobstatus');
-  if (wantJob && s(b.jobField).length < 2) return bad('Tell us the field / role you are looking for.', 'jobfield');
-  if (wantJob && !JOB_TYPES_OK.includes(b.jobType)) return bad('Pick the type of job that interests you.', 'jobtype');
-  if (!b.mode) return bad('Choose a counselling mode.', 'mode');
-  if (!b.undecided && s(b.career).length < 2) return bad('Tell us your career interest — or tick undecided.', 'career');
-  if (!Array.isArray(b.activities) || !b.activities.length) return bad('Pick at least one activity you enjoy.', 'activities');
-  if (schoolGrades) {
-    if (!abroad) return bad('Tell us about your study-abroad plans.', 'abroad');
-    if (ab && (!Array.isArray(b.countries) || !b.countries.length)) return bad('Pick at least one country — or add your own.', 'countries');
-    if (ab && !nonEmpty(b.budget)) return bad('Choose a tuition budget band.', 'budget');
-    if (ab && !nonEmpty(b.funds)) return bad('Tell us your source of funds.', 'funds');
-    if (ab && !['Yes', 'No'].includes(b.englishNeeded)) return bad('Say whether you need an English test.', 'engneed');
-    if (ab && b.englishNeeded === 'Yes' && !eng) return bad('Pick your English exam type.', 'engtype');
-    if (ab && b.englishNeeded === 'Yes' && !(isFinite(engScore) && engScore >= eng[0] && engScore <= eng[1]))
-      return bad('Enter a valid score for that exam.', 'engscore');
+  const ctx = regContext(b || {});
+  for (const r of REG_RULES) {
+    if (r.test(b || {}, ctx)) return { error: r.msg, field: r.field };
   }
-  if (!b.hear) return bad('Tell us how you found us.', 'hear');
-  if (!b.consent) return bad('Please accept the consent to continue.', 'consent');
   return null;
+}
+function buildProfile(b) {
+  const wantJob = b.goal === REG.jobGoal;
+  return {
+    phone: rstr(b.phone), dob: b.dob, gender: b.gender, nationality: rstr(b.nationality),
+    grade: b.grade, stream: b.grade === 'Class 11' ? b.stream : null,
+    school: rstr(b.school) || null,
+    board: rstr(b.board) || null,
+    boardOther: b.board === 'Other' ? rstr(b.boardOther) : null,
+    state: rstr(b.state), district: rstr(b.district),
+    city: rstr(b.city) || rstr(b.district),
+    subjects: b.grade === 'Class 11' ? b.subjects.map(String) : [],
+    enjoySubjects: (b.enjoySubjects || []).map(String),
+    degree: rstr(b.degree) || null, studyField: rstr(b.studyField) || null,
+    employmentStatus: b.employmentStatus || null,
+    workplace: rstr(b.workplace) || null, workField: rstr(b.workField) || null,
+    jobStatus: wantJob ? (b.jobStatus || b.employmentStatus || null) : null,
+    jobField: wantJob ? rstr(b.jobField) : null,
+    jobType: wantJob ? (b.jobType || null) : null,
+    goal: b.goal, goalOther: b.goal === 'Other' ? rstr(b.goalOther) : null, mode: b.mode,
+    exams: (b.exams || []).map(String), mockTests: !!b.mockTests,
+    career: b.undecided ? null : rstr(b.career), undecided: !!b.undecided,
+    activities: (b.activities || []).map(String), futureNote: String(b.futureNote || '').slice(0, 500),
+    abroad: b.abroad, countries: (b.countries || []).map(String), universities: (b.universities || []).map(String),
+    budget: b.budget || null, funds: b.funds || null,
+    englishNeeded: b.englishNeeded || null, engType: b.engType || null,
+    engScore: b.engScore === undefined || b.engScore === '' ? null : Number(b.engScore),
+    intake: b.intake || null, startYear: b.startYear || null, hear: b.hear,
+  };
 }
 
 /* ── WebSockets (hand-rolled RFC 6455 — no dependencies) ──── */
@@ -554,30 +603,7 @@ async function api(req, res, p) {
     let u;
     try {
       u = await createUser({ role: 'student', name: b.name.trim(), email, password: b.password,
-        counsellorId: cid, status: 'new',
-        profile: { phone: String(b.phone).trim(), dob: b.dob, gender: b.gender, nationality: String(b.nationality || '').trim(),
-                   grade: b.grade, stream: b.grade === 'Class 11' ? b.stream : null,
-                   school: String(b.school || '').trim() || null,
-                   board: String(b.board || '').trim() || null,
-                   boardOther: b.board === 'Other' ? String(b.boardOther || '').trim() : null,
-                   state: String(b.state || '').trim(), district: String(b.district || '').trim(),
-                   city: (String(b.city || '').trim() || String(b.district || '').trim()),
-                   subjects: b.grade === 'Class 11' ? b.subjects.map(String) : [], enjoySubjects: (b.enjoySubjects || []).map(String),
-                   employmentStatus: b.employmentStatus || null, workplace: String(b.workplace || '').trim() || null,
-                   workField: String(b.workField || '').trim() || null,
-                   jobStatus: b.goal === JOB_GOAL_OK ? (b.jobStatus || b.employmentStatus || null) : null,
-                   jobField: b.goal === JOB_GOAL_OK ? String(b.jobField || '').trim() : null,
-                   jobType: b.goal === JOB_GOAL_OK ? (b.jobType || null) : null,
-                   subjects: b.grade === 'Class 11' ? b.subjects.map(String) : [], enjoySubjects: (b.enjoySubjects || []).map(String),
-                   degree: String(b.degree || '').trim() || null, studyField: String(b.studyField || '').trim() || null,
-                   goal: b.goal, goalOther: b.goal === 'Other' ? String(b.goalOther || '').trim() : null, mode: b.mode, exams: (b.exams || []).map(String), mockTests: !!b.mockTests,
-                   career: b.undecided ? null : String(b.career || '').trim(), undecided: !!b.undecided,
-                   activities: (b.activities || []).map(String), futureNote: String(b.futureNote || '').slice(0, 500),
-                   abroad: b.abroad, countries: (b.countries || []).map(String), universities: (b.universities || []).map(String),
-                   budget: b.budget || null, funds: b.funds || null,
-                   englishNeeded: b.englishNeeded || null, engType: b.engType || null,
-                   engScore: b.engScore === undefined || b.engScore === '' ? null : Number(b.engScore),
-                   intake: b.intake || null, startYear: b.startYear || null, hear: b.hear } });
+        counsellorId: cid, status: 'new', profile: buildProfile(b) });
     } catch (e) {
       if (e.code === '23505') return send(400, { error: 'This email is already registered — try signing in.', field: 'email' });
       throw e;
