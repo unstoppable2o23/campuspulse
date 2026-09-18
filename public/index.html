@@ -127,7 +127,10 @@ svg.lucide{width:18px;height:18px;flex:none}
 .steps li.on .snum{border-color:var(--green);color:var(--green);box-shadow:0 0 0 4px var(--amber-soft)}
 .pane{animation:rise .3s ease both}
 @keyframes rise{from{opacity:0;transform:translateY(8px)}}
-.wiz-nav{display:flex;justify-content:space-between;margin-top:8px;position:sticky;bottom:0;background:var(--paper);padding:12px 0;border-top:1px dashed var(--line)}
+.wiz-nav{display:flex;justify-content:space-between;margin-top:8px}
+.auth-box .wiz-nav{position:fixed;bottom:0;z-index:20;background:var(--paper);border-top:1px solid var(--line);padding:12px 34px;left:52%;right:0;box-sizing:border-box;margin-top:0}
+.auth-box.wide{padding-bottom:84px}
+@media (max-width:900px){.auth-box .wiz-nav{left:0;padding:12px 18px}.auth-box.wide{padding-bottom:76px}}
 
 /* ── app shell ──────────────────────────────────────────── */
 .shell{display:grid;grid-template-columns:238px 1fr;min-height:100vh}
