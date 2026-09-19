@@ -1,0 +1,240 @@
+// CampusPulse normalized schema — Postgres (Supabase project URL works as DATABASE_URL).
+// Run: npm run db:migrate && npm run db:seed
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  COUNSELLOR
+  STUDENT
+}
+
+enum StudentStatus {
+  NEW
+  CONTACTED
+  COUNSELLING
+  ENROLLED
+}
+
+model User {
+  id           Int            @id @default(autoincrement())
+  role         Role           @default(STUDENT)
+  name         String
+  email        String         @unique
+  passwordHash String
+  status       StudentStatus?
+  counsellorId Int?
+  counsellor   User?          @relation("CounsellorStudents", fields: [counsellorId], references: [id], onDelete: SetNull)
+  students     User[]         @relation("CounsellorStudents")
+  profile      StudentProfile?
+  sessions     Session[]
+  consents     Consent[]
+  createdAt    DateTime       @default(now())
+
+  @@index([role])
+  @@index([counsellorId])
+}
+
+model Session {
+  token     String   @id
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Consent {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  version    String   @default("v1")
+  acceptedAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model StudentProfile {
+  id               Int      @id @default(autoincrement())
+  userId           Int      @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phone            String
+  phoneCountryCode String   @default("+91")
+  dateOfBirth      DateTime
+  gender           String
+  nationalityCode  String   @default("IN")
+  grade            String
+  stream           String?
+  school           String?
+  board            String?
+  boardOther       String?
+  degree           String?
+  fieldOfStudy     String?
+  careerInterest   String?
+  careerUndecided  Boolean  @default(false)
+  counsellingMode  String
+  mockTestsOptIn   Boolean  @default(false)
+  futureNote       String?  @db.VarChar(500)
+  hearAbout        String?
+  completionPct    Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  location    Location?
+  employment  Employment?
+  goal        Goal?
+  job         JobPreference?
+  activities  ProfileActivity[]
+  exams       ProfileExam[]
+  studyAbroad StudyAbroad?
+
+  @@index([grade])
+  @@index([nationalityCode])
+}
+
+model Location {
+  id           Int            @id @default(autoincrement())
+  profileId    Int            @unique
+  profile      StudentProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  countryCode  String         @default("IN")
+  stateCode    String?
+  stateText    String?
+  districtCode String?
+  districtText String?
+  city         String?
+}
+
+model Employment {
+  id           Int            @id @default(autoincrement())
+  profileId    Int            @unique
+  profile      StudentProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  status       String // Working | Fresher
+  workplace    String?
+  fieldRole    String?
+  desiredField String?
+}
+
+model Goal {
+  id        Int            @id @default(autoincrement())
+  profileId Int            @unique
+  profile   StudentProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  primary   String
+  otherText String?
+}
+
+model JobPreference {
+  id        Int            @id @default(autoincrement())
+  profileId Int            @unique
+  profile   StudentProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  status    String // Actively looking | Open to offers
+  fieldRole String
+  jobType   String // Full-time | Part-time | Internship
+}
+
+model ProfileActivity {
+  id        Int            @id @default(autoincrement())
+  profileId Int
+  profile   StudentProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  activity  String
+  customText String?
+
+  @@index([profileId])
+}
+
+model ProfileExam {
+  id        Int            @id @default(autoincrement())
+  profileId Int
+  profile   StudentProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  exam      String
+  detail    String?
+
+  @@index([profileId])
+}
+
+model StudyAbroad {
+  id        Int            @id @default(autoincrement())
+  profileId Int            @unique
+  profile   StudentProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  plan      String // Yes | No | Not sure
+  budget    String?
+  funds     String?
+  intake    String?
+  startYear Int?
+  countries AbroadCountry[]
+  universities University[]
+  englishTests EnglishTest[]
+}
+
+model AbroadCountry {
+  id           Int         @id @default(autoincrement())
+  studyAbroadId Int
+  studyAbroad  StudyAbroad @relation(fields: [studyAbroadId], references: [id], onDelete: Cascade)
+  countryCode  String?
+  customName   String?
+
+  @@index([studyAbroadId])
+}
+
+model University {
+  id           Int         @id @default(autoincrement())
+  studyAbroadId Int
+  studyAbroad  StudyAbroad @relation(fields: [studyAbroadId], references: [id], onDelete: Cascade)
+  name         String
+
+  @@index([studyAbroadId])
+}
+
+model EnglishTest {
+  id           Int         @id @default(autoincrement())
+  studyAbroadId Int
+  studyAbroad  StudyAbroad @relation(fields: [studyAbroadId], references: [id], onDelete: Cascade)
+  examType     String // IELTS | TOEFL iBT | PTE Academic | Duolingo | Other
+  score        Float?
+  taken        Boolean     @default(false)
+
+  @@index([studyAbroadId])
+}
+
+// ── Reference data (seeded, editable without touching components) ──
+
+model Country {
+  code        String  @id // ISO-3166 alpha-2
+  name        String
+  nationality String
+  dialCode    String
+  flag        String
+  states      State[]
+}
+
+model State {
+  id          Int     @id @default(autoincrement())
+  countryCode String
+  country     Country @relation(fields: [countryCode], references: [code], onDelete: Cascade)
+  code        String
+  name        String
+  districts   District[]
+
+  @@unique([countryCode, code])
+  @@index([countryCode])
+}
+
+model District {
+  id          Int   @id @default(autoincrement())
+  countryCode String
+  stateCode   String
+  state       State @relation(fields: [stateId], references: [id], onDelete: Cascade)
+  stateId     Int
+  code        String
+  name        String
+
+  @@unique([countryCode, stateCode, code])
+  @@index([countryCode, stateCode])
+}
