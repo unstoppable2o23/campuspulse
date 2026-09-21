@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, forwardRef } from "react";
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
   return <div className={`rounded-2xl border border-slate-200 bg-white p-6 shadow-sm ${className}`}>{children}</div>;
@@ -34,26 +34,36 @@ export function Field({ label, required, error, hint, children }: {
 
 const inputCls = "w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-brand-800 focus:outline-none focus:ring-1 focus:ring-brand-800";
 
-export function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
-  return <input {...props} className={`${inputCls} ${props.className ?? ""}`} />;
-}
+/* forwardRef: RHF's register() passes a ref that MUST reach the DOM node,
+   otherwise the field silently never registers (values read as undefined). */
+export const TextInput = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
+  function TextInput(props, ref) {
+    return <input ref={ref} {...props} className={`${inputCls} ${props.className ?? ""}`} />;
+  }
+);
 
-export function Select({ children, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select {...props} className={`${inputCls} ${props.className ?? ""}`}>{children}</select>;
-}
+export const Select = forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<HTMLSelectElement>>(
+  function Select({ children, ...props }, ref) {
+    return <select ref={ref} {...props} className={`${inputCls} ${props.className ?? ""}`}>{children}</select>;
+  }
+);
 
-export function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea {...props} className={`${inputCls} ${props.className ?? ""}`} />;
-}
+export const TextArea = forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement>>(
+  function TextArea(props, ref) {
+    return <textarea ref={ref} {...props} className={`${inputCls} ${props.className ?? ""}`} />;
+  }
+);
 
-export function CheckRow({ label, ...props }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
-      <input type="checkbox" {...props} className="h-4 w-4 rounded accent-brand-950" />
-      {label}
-    </label>
-  );
-}
+export const CheckRow = forwardRef<HTMLInputElement, { label: string } & React.InputHTMLAttributes<HTMLInputElement>>(
+  function CheckRow({ label, ...props }, ref) {
+    return (
+      <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+        <input type="checkbox" ref={ref} {...props} className="h-4 w-4 rounded accent-brand-950" />
+        {label}
+      </label>
+    );
+  }
+);
 
 export function StepIndicator({ steps, current }: { steps: string[]; current: number }) {
   return (
