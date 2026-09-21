@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useRef, useState } from "react";
-import { FormProvider, useForm } from "react-hook-form";
+import { FormProvider, useForm, type FieldErrors, type Resolver } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
 import {
@@ -48,10 +48,28 @@ const DEFAULTS: RegistrationInput = {
   engType: null, engScore: null, engNotTaken: false, intake: null, startYear: null,
 };
 
+/** Live per-step resolver: validates only the visible step so errors appear
+ *  and clear as the user types (manual setError errors never clear on edit). */
+function stepResolver(stepRef: React.MutableRefObject<number>): Resolver<RegistrationInput> {
+  return async (values) => {
+    const parsed = STEP_SCHEMAS[stepRef.current].safeParse(values);
+    if (parsed.success) return { values, errors: {} };
+    const errors: Record<string, { type: string; message: string }> = {};
+    for (const issue of parsed.error.issues) {
+      const key = String(issue.path[0] ?? "");
+      if (key && !errors[key]) errors[key] = { type: issue.code, message: issue.message };
+    }
+    return { values: {}, errors: errors as unknown as FieldErrors<RegistrationInput> };
+  };
+}
+
 export default function Wizard() {
   const router = useRouter();
-  const methods = useForm<RegistrationInput>({ defaultValues: DEFAULTS, mode: "onTouched" });
-  const { getValues, setError, clearErrors } = methods;
+  const stepRef = useRef(0);
+  const methods = useForm<RegistrationInput>({
+    defaultValues: DEFAULTS, mode: "onTouched", resolver: stepResolver(stepRef),
+  });
+  const { getValues, setError, clearErrors, trigger } = methods;
   const grade = methods.watch("grade");
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -63,6 +81,7 @@ export default function Wizard() {
     [grade]
   );
   const activeStep = Math.min(step, steps.length - 1);
+  stepRef.current = activeStep;
   const last = activeStep === steps.length - 1;
 
   function applyIssues(error: z.ZodError): number {
@@ -77,11 +96,10 @@ export default function Wizard() {
     return jump;
   }
 
-  function next() {
-    clearErrors();
+  async function next() {
     setServerError(null);
-    const parsed = STEP_SCHEMAS[activeStep].safeParse(getValues());
-    if (!parsed.success) { applyIssues(parsed.error); return; }
+    const ok = await trigger();
+    if (!ok) return;
     setStep(activeStep + 1);
     window.scrollTo({ top: 0 });
   }
